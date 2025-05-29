@@ -46,9 +46,12 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
         getStartedAt[latestRound] = _startedAt;
     }
 
-    function getRoundData(
-        uint80 _roundId
-    ) external view override returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
+    function getRoundData(uint80 _roundId)
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         return (_roundId, getAnswer[_roundId], getStartedAt[_roundId], getTimestamp[_roundId], _roundId);
     }
 
@@ -58,7 +61,13 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (uint80(latestRound), getAnswer[latestRound], getStartedAt[latestRound], getTimestamp[latestRound], uint80(latestRound));
+        return (
+            uint80(latestRound),
+            getAnswer[latestRound],
+            getStartedAt[latestRound],
+            getTimestamp[latestRound],
+            uint80(latestRound)
+        );
     }
 
     function description() external pure override returns (string memory) {

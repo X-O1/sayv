@@ -8,7 +8,6 @@ pragma solidity ^0.8.30;
  * @custom:author https://github.com/X-O1
  * @custom:version v1.0
  */
-
 contract StablecoinRegistry {
     error NOT_OWNER(address caller, address owner);
     error TOKEN_ALREADY_APPROVED(address tokenAddress);
