@@ -60,39 +60,39 @@ contract HelperConfig is Script {
         NetworkConfig memory anvilConfig = NetworkConfig({token: address(0), priceFeed: address(mockPriceFeed)});
         return anvilConfig.priceFeed;
     }
-
-    // function getUsdtConfig(uint256 _chainId) public returns (NetworkConfig memory priceFeed) {
-    //     NetworkConfig memory ethMainnet = NetworkConfig({priceFeed: 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D});
-    //     NetworkConfig memory baseMainnet = NetworkConfig({priceFeed: 0xf19d560eB8d2ADf07BD6D13ed03e1D11215721F9});
-    //     NetworkConfig memory baseSepolia = NetworkConfig({priceFeed: 0x3ec8593F930EA45ea58c968260e6e9FF53FC934f});
-
-    //     if (_chainId == 1) {
-    //         return ethMainnet;
-    //     } else if (_chainId == 8453) {
-    //         return baseMainnet;
-    //     } else if (_chainId == 84532) {
-    //         return baseSepolia;
-    //     } else {
-    //         return getOrCreateAnvilEthConfig();
-    //     }
-    // }
-
-    // function getDaiConfig(uint256 _chainId) public returns (NetworkConfig memory priceFeed) {
-    //     NetworkConfig memory ethMainnet = NetworkConfig({priceFeed: 0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9});
-    //     NetworkConfig memory ethSepolia = NetworkConfig({priceFeed: 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19});
-    //     NetworkConfig memory baseMainnet = NetworkConfig({priceFeed: 0x591e79239a7d679378eC8c847e5038150364C78F});
-    //     NetworkConfig memory baseSepolia = NetworkConfig({priceFeed: 0xD1092a65338d049DB68D7Be6bD89d17a0929945e});
-
-    //     if (_chainId == 1) {
-    //         return ethMainnet;
-    //     } else if (_chainId == 11155111) {
-    //         return ethSepolia;
-    //     } else if (_chainId == 8453) {
-    //         return baseMainnet;
-    //     } else if (_chainId == 84532) {
-    //         return baseSepolia;
-    //     } else {
-    //         return getOrCreateAnvilEthConfig();
-    //     }
-    // }
 }
+
+// function getUsdtConfig(uint256 _chainId) public returns (NetworkConfig memory priceFeed) {
+//     NetworkConfig memory ethMainnet = NetworkConfig({priceFeed: 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D});
+//     NetworkConfig memory baseMainnet = NetworkConfig({priceFeed: 0xf19d560eB8d2ADf07BD6D13ed03e1D11215721F9});
+//     NetworkConfig memory baseSepolia = NetworkConfig({priceFeed: 0x3ec8593F930EA45ea58c968260e6e9FF53FC934f});
+
+//     if (_chainId == 1) {
+//         return ethMainnet;
+//     } else if (_chainId == 8453) {
+//         return baseMainnet;
+//     } else if (_chainId == 84532) {
+//         return baseSepolia;
+//     } else {
+//         return getOrCreateAnvilEthConfig();
+//     }
+// }
+
+// function getDaiConfig(uint256 _chainId) public returns (NetworkConfig memory priceFeed) {
+//     NetworkConfig memory ethMainnet = NetworkConfig({priceFeed: 0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9});
+//     NetworkConfig memory ethSepolia = NetworkConfig({priceFeed: 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19});
+//     NetworkConfig memory baseMainnet = NetworkConfig({priceFeed: 0x591e79239a7d679378eC8c847e5038150364C78F});
+//     NetworkConfig memory baseSepolia = NetworkConfig({priceFeed: 0xD1092a65338d049DB68D7Be6bD89d17a0929945e});
+
+//     if (_chainId == 1) {
+//         return ethMainnet;
+//     } else if (_chainId == 11155111) {
+//         return ethSepolia;
+//     } else if (_chainId == 8453) {
+//         return baseMainnet;
+//     } else if (_chainId == 84532) {
+//         return baseSepolia;
+//     } else {
+//         return getOrCreateAnvilEthConfig();
+//     }
+// }
