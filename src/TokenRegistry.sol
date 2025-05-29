@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 /**
  * @title TokenRegistry
- * @notice Maintains a list of approved tokens addresses for the SAYV protocol
+ * @notice Maintains a list of approved tokens for the SAYV protocol
  * @dev Only the contract owner can add or remove tokens
  * @custom:version v1.0
  */
@@ -11,8 +11,10 @@ contract TokenRegistry {
     error NOT_OWNER(address caller, address owner);
     error TOKEN_ALREADY_APPROVED(address tokenAddress);
     error TOKEN_NOT_APPROVED(address tokenAddress);
+    error NOT_ACTIVE_CHAIN_ID(uint256 chainId, uint256 activeChainId);
 
     address immutable i_owner;
+    uint256 immutable i_activeChainId;
 
     struct TokenDetails {
         address tokenAddress;
@@ -28,6 +30,7 @@ contract TokenRegistry {
 
     constructor() {
         i_owner = msg.sender;
+        i_activeChainId = block.chainid;
     }
 
     modifier ownerOnly() {
@@ -38,7 +41,7 @@ contract TokenRegistry {
     }
 
     function addTokenToRegistry(address _tokenAddress, uint256 _chainId, address _priceFeed) external ownerOnly {
-        if (checkIfTokenIsApproved(_tokenAddress)) {
+        if (_chainId == i_activeChainId && isApproved[_tokenAddress]) {
             revert TOKEN_ALREADY_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = true;
@@ -50,7 +53,7 @@ contract TokenRegistry {
     }
 
     function removeTokenFromRegistry(address _tokenAddress, uint256 _chainId, address _priceFeed) external ownerOnly {
-        if (!checkIfTokenIsApproved(_tokenAddress)) {
+        if (_chainId == i_activeChainId && isApproved[_tokenAddress]) {
             revert TOKEN_NOT_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = false;
@@ -58,7 +61,11 @@ contract TokenRegistry {
         emit Token_Removed_From_Registry(_tokenAddress, _chainId, _priceFeed);
     }
 
-    function checkIfTokenIsApproved(address _tokenAddress) internal view returns (bool) {
+    function checkIfTokenIsApproved(address _tokenAddress) public view returns (bool) {
         return isApproved[_tokenAddress];
+    }
+
+    function getApprovedTokenDetails(address _tokenAddress) public view returns (TokenDetails memory) {
+        return approvedTokenDetails[_tokenAddress];
     }
 }

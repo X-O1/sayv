@@ -21,5 +21,7 @@ contract Sayv {
     constructor(address _tokenRegistry, address _priceFeed) {
         s_priceFeed = AggregatorV3Interface(_priceFeed);
         s_tokenRegistry = TokenRegistry(_tokenRegistry);
+
+        // when new token is registered this contract should have access to the tokens, address, pricefeed, and chainId it was added on;
     }
 }
