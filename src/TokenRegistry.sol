@@ -22,7 +22,7 @@ contract TokenRegistry {
         address priceFeed;
     }
 
-    mapping(address token => TokenDetails) public approvedTokenDetails;
+    mapping(address token => TokenDetails) public tokenDetails;
     mapping(address token => bool approved) public isApproved;
 
     event Token_Added_To_Registry(address indexed tokenAddress, uint256 indexed chainId, address indexed priceFeed);
@@ -47,7 +47,7 @@ contract TokenRegistry {
             revert TOKEN_ALREADY_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = true;
-            approvedTokenDetails[_tokenAddress] =
+            tokenDetails[_tokenAddress] =
                 TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId, priceFeed: _priceFeed});
         }
 
@@ -70,6 +70,6 @@ contract TokenRegistry {
     }
 
     function getApprovedTokenDetails(address _tokenAddress) public view returns (TokenDetails memory) {
-        return approvedTokenDetails[_tokenAddress];
+        return tokenDetails[_tokenAddress];
     }
 }
