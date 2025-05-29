@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {StablecoinRegistry} from "../../src/StablecoinRegistry.sol";
+import {TokenRegistry} from "../../src/TokenRegistry.sol";
 import {Test, console} from "forge-std/Test.sol";
 
-contract StablecoinRegistryTest is Test {
-    StablecoinRegistry stablecoinRegistry;
+contract TokenRegistryTest is Test {
+    TokenRegistry stablecoinRegistry;
 
     function setUp() external {
-        stablecoinRegistry = new StablecoinRegistry();
+        stablecoinRegistry = new TokenRegistry();
     }
 
     function test() public {}
