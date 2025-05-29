@@ -6,7 +6,7 @@ import {AggregatorV2V3Interface} from "@chainlink/contracts/src/v0.8/shared/inte
 /**
  * @title MockV3Aggregator
  * @notice Based on the FluxAggregator contract
- * @notice Use this contract when you need to test
+ * @notice Use this contract when you need to testt
  * other contract's ability to read data from an
  * aggregator contract, but how the aggregator got
  * its answer is unimportant
