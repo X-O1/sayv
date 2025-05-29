@@ -41,7 +41,9 @@ contract TokenRegistry {
     }
 
     function addTokenToRegistry(address _tokenAddress, uint256 _chainId, address _priceFeed) external ownerOnly {
-        if (_chainId == i_activeChainId && isApproved[_tokenAddress]) {
+        if (_chainId != i_activeChainId) {
+            revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
+        } else if (isApproved[_tokenAddress]) {
             revert TOKEN_ALREADY_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = true;
@@ -53,7 +55,9 @@ contract TokenRegistry {
     }
 
     function removeTokenFromRegistry(address _tokenAddress, uint256 _chainId, address _priceFeed) external ownerOnly {
-        if (_chainId == i_activeChainId && isApproved[_tokenAddress]) {
+        if (_chainId != i_activeChainId) {
+            revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
+        } else if (isApproved[_tokenAddress]) {
             revert TOKEN_NOT_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = false;
