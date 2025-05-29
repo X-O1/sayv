@@ -46,7 +46,8 @@ contract StablecoinRegistry {
         if (_checkIfTokenIsApproved(_tokenAddress)) {
             revert TOKEN_ALREADY_APPROVED(_tokenAddress);
         } else {
-            TokenDetails memory token = TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId, priceFeed: _priceFeed, approved: true});
+            TokenDetails memory token =
+                TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId, priceFeed: _priceFeed, approved: true});
             listOfApprovedTokens.push(_tokenAddress);
             approvedTokenDetails[_tokenAddress] = token;
         }
