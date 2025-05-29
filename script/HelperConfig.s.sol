@@ -2,6 +2,7 @@
 
 import {Script} from "forge-std/Script.sol";
 import {Sayv} from "../src/Sayv.sol";
+import {TokenRegistry} from "../src/TokenRegistry.sol";
 import {MockV3Aggregator} from "../test/mocks/MockV3Aggregator.sol.sol";
 
 pragma solidity ^0.8.30;

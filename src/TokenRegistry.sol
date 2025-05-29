@@ -42,7 +42,8 @@ contract TokenRegistry {
             revert TOKEN_ALREADY_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = true;
-            approvedTokenDetails[_tokenAddress] = TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId, priceFeed: _priceFeed});
+            approvedTokenDetails[_tokenAddress] =
+                TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId, priceFeed: _priceFeed});
         }
 
         emit Token_Added_To_Registry(_tokenAddress, _chainId, _priceFeed);
