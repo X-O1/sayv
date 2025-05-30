@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
 contract Sayv {
-    ITokenRegistry public iTokenRegistry;
+    ITokenRegistry internal iTokenRegistry;
 
     error NOT_OWNER(address caller, address owner);
 
@@ -17,9 +17,8 @@ contract Sayv {
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
             revert NOT_OWNER(msg.sender, i_owner);
-        } else {
-            _;
         }
+        _;
     }
 
     function setTokenRegistry(address _tokenRegistryAddress) external onlyOwner {
