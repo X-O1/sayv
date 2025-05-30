@@ -5,17 +5,29 @@ import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
 contract Sayv {
     ITokenRegistry public iTokenRegistry;
-    address tokenRegistryAddress;
+    address public s_tokenRegistryAddress;
 
     error NOT_OWNER(address caller, address owner);
     error TOKEN_NOT_APPROVED(address tokenAddress);
+    error REGISTRY_ADDRESS_ALREADY_SET(address attemptedRegistryAddress, address activeRegistryAddress);
 
     address immutable i_owner;
+
+    struct AccountType {
+        bool yieldBarring;
+        bool goalLocked;
+        bool inheritable;
+    }
+
+    mapping(address account => AccountType) public s_accountTypes;
+    mapping(address account => mapping(address token => uint256 amount)) public s_tokenBalances;
+
+    event New_Token_Registry_Set(address indexed caller, address indexed newRegistry);
 
     constructor(address _tokenRegistryAddress) {
         i_owner = msg.sender;
         iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
-        tokenRegistryAddress = _tokenRegistryAddress;
+        s_tokenRegistryAddress = _tokenRegistryAddress;
     }
 
     modifier onlyOwner() {
@@ -26,8 +38,13 @@ contract Sayv {
     }
 
     function setTokenRegistry(address _tokenRegistryAddress) external onlyOwner {
-        iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
-        tokenRegistryAddress = _tokenRegistryAddress;
+        if (s_tokenRegistryAddress == _tokenRegistryAddress) {
+            revert REGISTRY_ADDRESS_ALREADY_SET(_tokenRegistryAddress, s_tokenRegistryAddress);
+        } else {
+            iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
+            s_tokenRegistryAddress = _tokenRegistryAddress;
+        }
+        emit New_Token_Registry_Set(msg.sender, s_tokenRegistryAddress);
     }
 
     function isApprovedOnRegistry(address _tokenAddress) public view returns (bool) {
@@ -35,11 +52,7 @@ contract Sayv {
     }
 
     function getRegistryContractAddress() public view returns (address) {
-        return tokenRegistryAddress;
-    }
-
-    function getRegistryContractOwnerAddress() public view returns (address) {
-        return iTokenRegistry.getRegistryContractOwnerAddress();
+        return s_tokenRegistryAddress;
     }
 
     function getSayvContractOwnerAddress() public view returns (address) {
