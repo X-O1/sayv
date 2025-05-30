@@ -57,7 +57,7 @@ contract TokenRegistry {
     function removeTokenFromRegistry(address _tokenAddress, uint256 _chainId, address _priceFeed) external ownerOnly {
         if (_chainId != i_activeChainId) {
             revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
-        } else if (isApproved[_tokenAddress]) {
+        } else if (!isApproved[_tokenAddress]) {
             revert TOKEN_NOT_APPROVED(_tokenAddress);
         } else {
             isApproved[_tokenAddress] = false;
@@ -69,7 +69,11 @@ contract TokenRegistry {
         return isApproved[_tokenAddress];
     }
 
-    function getApprovedTokenDetails(address _tokenAddress) public view returns (TokenDetails memory) {
-        return tokenDetails[_tokenAddress];
+    function getTokenDetails(address _tokenAddress) public view returns (TokenDetails memory details) {
+        if (isApproved[_tokenAddress]) return tokenDetails[_tokenAddress];
+    }
+
+    function getContractOwnerAddress() public view returns (address) {
+        return i_owner;
     }
 }
