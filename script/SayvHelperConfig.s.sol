@@ -7,6 +7,9 @@ import {MockV3Aggregator} from "../test/mocks/MockV3Aggregator.sol.sol";
 pragma solidity ^0.8.30;
 
 contract SayvHelperConfig is Script {
+    error PRICE_FEED_DOES_NOT_EXIST();
+    error PRICE_FEED_ALREADY_EXIST();
+
     address public activeNetworkConfig;
 
     struct NetworkConfig {
@@ -14,8 +17,30 @@ contract SayvHelperConfig is Script {
         address priceFeed;
     }
 
+    mapping(address tokenAddress => mapping(uint256 chainId => address priceFeed)) private s_priceFeeds;
+
+    event Price_Feed_Added(address indexed token, uint256 indexed chainId, address indexed priceFeed);
+
     constructor() {
-        activeNetworkConfig = getUsdcConfig(block.chainid);
+        // activeNetworkConfig = getUsdcConfig(block.chainid);
+    }
+
+    function addPriceFeed(address _tokenAddress, uint256 _chainId, address _priceFeed) external {
+        if (s_priceFeeds[_tokenAddress][_chainId] != address(0)) {
+            revert PRICE_FEED_ALREADY_EXIST();
+        } else {
+            s_priceFeeds[_tokenAddress][_chainId] = _priceFeed;
+        }
+
+        emit Price_Feed_Added(_tokenAddress, _chainId, _priceFeed);
+    }
+
+    function getPriceFeed(address _tokenAddress, uint256 _chainId) public view returns (address) {
+        if (s_priceFeeds[_tokenAddress][_chainId] == address(0)) {
+            revert PRICE_FEED_DOES_NOT_EXIST();
+        } else {
+            return s_priceFeeds[_tokenAddress][_chainId];
+        }
     }
 
     function getUsdcConfig(uint256 _chainId) public returns (address priceFeed) {

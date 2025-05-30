@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import {PriceConverter} from "./PriceConverter.sol";
-import {TokenRegistry} from "../src/TokenRegistry.sol";
+import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
-/**
- * @title Sayv
- * @notice Main Functions
- * @dev ..
- * @custom:author https://github.com/X-O1
- * @custom:version v1.0
- */
 contract Sayv {
-    using PriceConverter for uint256;
+    ITokenRegistry public iTokenRegistry;
 
-    AggregatorV3Interface private s_priceFeed;
-    TokenRegistry private s_tokenRegistry;
+    error NOT_OWNER(address caller, address owner);
 
-    constructor(address _tokenRegistry, address _priceFeed) {
-        s_priceFeed = AggregatorV3Interface(_priceFeed);
-        s_tokenRegistry = TokenRegistry(_tokenRegistry);
+    address immutable i_owner;
 
-        // when new token is registered this contract should have access to the tokens, address, pricefeed, and chainId it was added on;
+    constructor() {
+        i_owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != i_owner) {
+            revert NOT_OWNER(msg.sender, i_owner);
+        } else {
+            _;
+        }
+    }
+
+    function setTokenRegistry(address _tokenRegistryAddress) external onlyOwner {
+        iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
     }
 }
