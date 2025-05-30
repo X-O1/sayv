@@ -12,8 +12,6 @@ contract TokenRegistryTest is Test {
     address dev = makeAddr("dev");
     address user = makeAddr("user");
     address usdcBaseSepoliaAddress = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address usdcBaseSepoliaPriceFeed = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165;
-    uint256 baseMainnetChainId = 8453;
     uint256 baseSepoliaChainId = 84532;
     uint256 anvilChainId = 31337;
 
@@ -36,50 +34,48 @@ contract TokenRegistryTest is Test {
     function testOnlyOwnerCanAddTokenToRegistry() public {
         vm.expectRevert();
         vm.prank(user);
-        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId);
     }
 
     function testOnlyOwnerCanRemoveTokenFromRegistry() public {
         vm.expectRevert();
         vm.prank(user);
-        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, anvilChainId);
     }
 
     function testTokenAddedMustBeOnActiveChain() public {
         vm.expectRevert();
         vm.prank(dev);
-        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, 1, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, 1);
     }
 
     function testTokenRemovedMustBeOnActiveChain() public {
         vm.expectRevert();
         vm.prank(dev);
-        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, 1, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, 1);
     }
 
     function testAddingTokenToRegistry() public {
         vm.prank(dev);
-        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId);
     }
 
     function testTokenApprovedListIsUpdatedAfterAddingAndRemoving() public {
         vm.prank(dev);
-        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId);
         vm.prank(dev);
         assertEq(tokenRegistry.checkIfTokenIsApproved(usdcBaseSepoliaAddress), true);
 
         vm.prank(dev);
-        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.removeTokenFromRegistry(usdcBaseSepoliaAddress, anvilChainId);
         vm.prank(dev);
         assertEq(tokenRegistry.checkIfTokenIsApproved(usdcBaseSepoliaAddress), false);
     }
 
     function testGettingTokenDetails() public {
         vm.prank(dev);
-        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId, usdcBaseSepoliaPriceFeed);
+        tokenRegistry.addTokenToRegistry(usdcBaseSepoliaAddress, anvilChainId);
         vm.prank(dev);
         assertEq(tokenRegistry.getTokenDetails(usdcBaseSepoliaAddress).chainId, anvilChainId);
-        vm.prank(dev);
-        assertEq(tokenRegistry.getTokenDetails(usdcBaseSepoliaAddress).priceFeed, usdcBaseSepoliaPriceFeed);
     }
 }
