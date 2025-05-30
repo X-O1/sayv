@@ -35,9 +35,8 @@ contract TokenRegistry {
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
             revert NOT_OWNER(msg.sender, i_owner);
-        } else {
-            _;
         }
+        _;
     }
 
     function addTokenToRegistry(address _tokenAddress, uint256 _chainId) external onlyOwner {
