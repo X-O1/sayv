@@ -4,8 +4,6 @@ pragma solidity ^0.8.30;
 import {TokenRegistry} from "../../src/TokenRegistry.sol";
 import {Test, console} from "forge-std/Test.sol";
 
-// import {DeployTokenRegistry} from "../../script/DeployTokenRegistry.s.sol";
-
 contract TokenRegistryTest is Test {
     TokenRegistry tokenRegistry;
 
@@ -16,9 +14,6 @@ contract TokenRegistryTest is Test {
     uint256 anvilChainId = 31337;
 
     function setUp() external {
-        // DeployTokenRegistry deployTokenRegistry = new DeployTokenRegistry();
-        // tokenRegistry = deployTokenRegistry.run();
-
         vm.startPrank(dev);
         tokenRegistry = new TokenRegistry();
         vm.stopPrank();
@@ -28,7 +23,7 @@ contract TokenRegistryTest is Test {
     }
 
     function testOwnerOfContractIsDeployer() public view {
-        assertEq(tokenRegistry.getContractOwnerAddress(), dev);
+        assertEq(tokenRegistry.getRegistryContractOwnerAddress(), dev);
     }
 
     function testOnlyOwnerCanAddTokenToRegistry() public {

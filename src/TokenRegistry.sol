@@ -5,6 +5,7 @@ pragma solidity ^0.8.30;
  * @title TokenRegistry
  * @notice Maintains a list of approved tokens for the SAYV protocol
  * @dev Only the contract owner can add or remove tokens
+ * @dev v2.0 will allow any DOA to add or remove tokens instead of contract owner
  * @custom:version v1.0
  */
 contract TokenRegistry {
@@ -71,7 +72,11 @@ contract TokenRegistry {
         if (isApproved[_tokenAddress]) return tokenDetails[_tokenAddress];
     }
 
-    function getContractOwnerAddress() external view returns (address) {
+    function getRegistryContractOwnerAddress() external view returns (address) {
         return i_owner;
+    }
+
+    function getRegistryContractAddress() external view returns (address) {
+        return address(this);
     }
 }
