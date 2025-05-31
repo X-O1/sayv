@@ -1,6 +1,6 @@
 # SAYV
 
-A no-code, modular bank account.
+Modular bank account.
 
 ## Features
 
