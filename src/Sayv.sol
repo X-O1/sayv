@@ -51,7 +51,7 @@ contract Sayv {
         emit New_Token_Registry_Set(msg.sender, s_tokenRegistryAddress);
     }
 
-    function _addAndSetGoalLockAmount(address _account, address _token, uint256 _goalAmount) internal {
+    function _addGoalLockAndSetAmount(address _account, address _token, uint256 _goalAmount) internal {
         if (_isGoalLocked(_account)) {
             revert ACCOUNT_ALREADY_GOAL_LOCKED(_account, _token, _goalAmount);
         } else {
