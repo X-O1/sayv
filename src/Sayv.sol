@@ -1,37 +1,50 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import "./Errors.sol";
 import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
 contract Sayv {
-    ITokenRegistry public iTokenRegistry;
-    address public s_tokenRegistryAddress;
-
-    error NOT_OWNER(address caller, address owner);
-    error TOKEN_NOT_APPROVED(address tokenAddress);
-    error REGISTRY_ADDRESS_ALREADY_SET(address attemptedRegistryAddress, address activeRegistryAddress);
-    error WITHDRAW_GOAL_NOT_MET(uint256 currentAmount, uint256 goalAmount);
-    error ACCOUNT_ALREADY_GOAL_LOCKED(address account, address token, uint256 goalAmount);
-
+    ITokenRegistry internal iTokenRegistry;
+    address public s_tokenRegistry;
     address immutable i_owner;
 
-    struct AccountType {
-        bool yieldBarring;
-        bool goalLocked;
-        bool inheritable;
-    }
-
-    mapping(address account => AccountType) public s_accountTypes;
-    mapping(address account => mapping(address token => uint256 amount)) public s_tokenBalances;
-    mapping(address account => mapping(address token => uint256 goalAmount)) public s_goalLockAmounts;
+    /**
+     * @notice s_accountAvailableBalance tracks user's available balance that can be withdrawn without repayment of any debt.
+     */
+    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountAvailableBalance;
+    /**
+     * @notice s_accountDebtBalance tracks how much the user owes the protocol from taking an advance + any fees;
+     * To withdraw full balance of collateral this balance must be 0.
+     */
+    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountDebtBalance;
+    /**
+     * @notice s_accountBalance tracks account balance of each token.
+     */
+    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountTokenBalance;
+    /**
+     * @notice s_accountTotalBalance tracks total balance of all tokens combined in account.
+     * Calculation to get total amount is in Calculations.sol
+     */
+    mapping(bytes32 accountId => uint256 amount) public s_accountTotalBalance;
+    /**
+     * @notice s_accountAddressBook tracks permitted wallet addresses for each account.
+     * Accounts can only withdraw to these addresses.
+     * User can add and remove anytime they want.
+     * All balances will be tied to User's account ID not individual addresses. (may change***)
+     * If user deposits from bank they will have to add an address to withdraw to self custody and use that address to call withdrawl.
+     * If user deposits from a self custody wallet the depositing address will be added automatically.
+     */
+    mapping(bytes32 accountId => mapping(address userWalletAddress => bool isActive)) public s_accountAddressBook;
 
     event New_Token_Registry_Set(address indexed caller, address indexed newRegistry);
-    event Account_Was_Goal_Locked(address indexed account, address indexed token, uint256 indexed goalAmount);
+    event Address_Added_To_Address_Book(bytes32 indexed accountId, address indexed userAddress);
+    event Address_Removed_From_Address_Book(bytes32 indexed accountId, address indexed userAddress);
 
-    constructor(address _tokenRegistryAddress) {
+    constructor(address _tokenRegistry) {
         i_owner = msg.sender;
-        iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
-        s_tokenRegistryAddress = _tokenRegistryAddress;
+        iTokenRegistry = ITokenRegistry(_tokenRegistry);
+        s_tokenRegistry = _tokenRegistry;
     }
 
     modifier onlyOwner() {
@@ -41,47 +54,48 @@ contract Sayv {
         _;
     }
 
-    function setTokenRegistry(address _tokenRegistryAddress) external onlyOwner {
-        if (s_tokenRegistryAddress == _tokenRegistryAddress) {
-            revert REGISTRY_ADDRESS_ALREADY_SET(_tokenRegistryAddress, s_tokenRegistryAddress);
-        } else {
-            iTokenRegistry = ITokenRegistry(_tokenRegistryAddress);
-            s_tokenRegistryAddress = _tokenRegistryAddress;
+    function setTokenRegistry(address _tokenRegistry) external onlyOwner {
+        if (s_tokenRegistry == _tokenRegistry) {
+            revert REGISTRY_ADDRESS_ALREADY_SET(_tokenRegistry, s_tokenRegistry);
         }
-        emit New_Token_Registry_Set(msg.sender, s_tokenRegistryAddress);
+        iTokenRegistry = ITokenRegistry(_tokenRegistry);
+        s_tokenRegistry = _tokenRegistry;
+        emit New_Token_Registry_Set(msg.sender, s_tokenRegistry);
     }
 
-    function _addGoalLockAndSetAmount(address _account, address _token, uint256 _goalAmount) internal {
-        if (_isGoalLocked(_account)) {
-            revert ACCOUNT_ALREADY_GOAL_LOCKED(_account, _token, _goalAmount);
-        } else {
-            AccountType storage account = s_accountTypes[_account];
-            account.goalLocked = true;
-            s_goalLockAmounts[_account][_token] = _goalAmount;
+    function addAddressToAddressBook(bytes32 _accountId, address _address) public {
+        if (_address == address(0)) {
+            revert INVALID_ADDRESS(_accountId, _address);
         }
-        emit Account_Was_Goal_Locked(_account, _token, _goalAmount);
+        if (_isInAccountAddressBook(_accountId, _address)) {
+            revert ADDRESS_ALREADY_IN_ADDRESS_BOOK(_accountId, _address);
+        }
+
+        s_accountAddressBook[_accountId][_address] = true;
+        emit Address_Added_To_Address_Book(_accountId, _address);
     }
 
-    function _isApprovedOnRegistry(address _tokenAddress) internal view returns (bool) {
-        return iTokenRegistry.checkIfTokenIsApproved(_tokenAddress);
+    function removeAddressFromAddressBook(bytes32 _accountId, address _address) public {
+        if (_address == address(0)) {
+            revert INVALID_ADDRESS(_accountId, _address);
+        }
+        if (!_isInAccountAddressBook(_accountId, _address)) {
+            revert ADDRESS_NOT_IN_ADDRESS_BOOK(_accountId, _address);
+        }
+
+        s_accountAddressBook[_accountId][_address] = false;
+        emit Address_Removed_From_Address_Book(_accountId, _address);
     }
 
-    function _isGoalLocked(address _account) internal view returns (bool) {
-        AccountType storage account = s_accountTypes[_account];
-        return account.goalLocked;
+    function _isApprovedOnRegistry(address _token) internal view returns (bool) {
+        return iTokenRegistry.checkIfTokenIsApproved(_token);
     }
 
-    function _isYieldBarring(address _account) internal view returns (bool) {
-        AccountType storage account = s_accountTypes[_account];
-        return account.yieldBarring;
-    }
-
-    function _isInheritable(address _account) internal view returns (bool) {
-        AccountType storage account = s_accountTypes[_account];
-        return account.inheritable;
+    function _isInAccountAddressBook(bytes32 _accountId, address _address) internal view returns (bool) {
+        return s_accountAddressBook[_accountId][_address];
     }
 
     function getRegistryContractAddress() public view returns (address) {
-        return s_tokenRegistryAddress;
+        return s_tokenRegistry;
     }
 }

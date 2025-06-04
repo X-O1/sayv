@@ -8,12 +8,9 @@ pragma solidity ^0.8.30;
  * @dev v2.0 will allow any DOA to add or remove tokens instead of contract owner
  * @custom:version v1.0
  */
-contract TokenRegistry {
-    error NOT_OWNER(address caller, address owner);
-    error TOKEN_ALREADY_APPROVED(address tokenAddress);
-    error TOKEN_NOT_APPROVED(address tokenAddress);
-    error NOT_ACTIVE_CHAIN_ID(uint256 chainId, uint256 activeChainId);
+import "./Errors.sol";
 
+contract TokenRegistry {
     address immutable i_owner;
     uint256 immutable i_activeChainId;
 

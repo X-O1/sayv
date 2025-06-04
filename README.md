@@ -1,24 +1,7 @@
 # SAYV
 
-Modular bank account.
+A savings account you have a say in.
 
-## Features
+```
 
-- Feature 1
-- Feature 2
-- Feature 3
-
-## Tech Stack
-
-- Language / Framework
-- Tools / Libraries
-- Infrastructure
-
-## Getting Started
-
-```bash
-# install dependencies
-...
-
-# run project
 ```
