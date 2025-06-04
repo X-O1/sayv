@@ -4,6 +4,10 @@ pragma solidity ^0.8.30;
 import "./Errors.sol";
 import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
+/// @title Sayv
+/// @notice Manages user accounts and balances.
+/// @notice Manages the active Token Registry (Token Whitelist for SAYV).
+
 contract Sayv {
     ITokenRegistry internal iTokenRegistry;
     address public s_tokenRegistry;
@@ -52,6 +56,12 @@ contract Sayv {
         }
         _;
     }
+    /**
+     *
+     * @param _tokenRegistry is the contract address of the token whitelist manager for the SAYV protocol.
+     * @notice Only tokens registered on this registry can be deposited into the SAYV protocol.
+     * @notice This function allows owner of SAYV protocol to changed registry contract if the registry ever upgrades.
+     */
 
     function setTokenRegistry(address _tokenRegistry) external onlyOwner {
         if (s_tokenRegistry == _tokenRegistry) {
@@ -62,6 +72,12 @@ contract Sayv {
         emit New_Token_Registry_Set(msg.sender, s_tokenRegistry);
     }
 
+    /**
+     *
+     * @param _account address of account owner.
+     * @param _newPermittedAddress address being added to the permited list.
+     * @notice This address will now be able to withdraw from the SAYV LP.
+     */
     function addPermittedAddress(address _account, address _newPermittedAddress) public {
         if (msg.sender != _account) {
             revert NOT_ACCOUNT_OWNER(_account);
@@ -77,6 +93,12 @@ contract Sayv {
         emit Address_Permitted(_account, _newPermittedAddress);
     }
 
+    /**
+     *
+     * @param _account address of account owner.
+     * @param _permittedAddress permitted address that is being removed from permitted list.
+     * @notice This address will no longer be able to withdraw from the SAYV LP.
+     */
     function removePermittedAddress(address _account, address _permittedAddress) public {
         if (msg.sender != _account) {
             revert NOT_ACCOUNT_OWNER(_account);
