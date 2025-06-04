@@ -12,34 +12,33 @@ contract Sayv {
     /**
      * @notice s_accountAvailableBalance tracks user's available balance that can be withdrawn without repayment of any debt.
      */
-    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountAvailableBalance;
+    mapping(address account => mapping(address token => uint256 amount)) public s_accountAvailableBalance;
     /**
      * @notice s_accountDebtBalance tracks how much the user owes the protocol from taking an advance + any fees;
      * To withdraw full balance of collateral this balance must be 0.
      */
-    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountDebtBalance;
+    mapping(address account => mapping(address token => uint256 amount)) public s_accountDebtBalance;
     /**
-     * @notice s_accountBalance tracks account balance of each token.
+     * @notice s_accountTokenBalance tracks account balance of each token.
      */
-    mapping(bytes32 accountId => mapping(address token => uint256 amount)) public s_accountTokenBalance;
+    mapping(address account => mapping(address token => uint256 amount)) public s_accountTokenBalance;
     /**
      * @notice s_accountTotalBalance tracks total balance of all tokens combined in account.
      * Calculation to get total amount is in Calculations.sol
      */
-    mapping(bytes32 accountId => uint256 amount) public s_accountTotalBalance;
+    mapping(address account => uint256 amount) public s_accountTotalBalance;
     /**
-     * @notice s_accountAddressBook tracks permitted wallet addresses for each account.
-     * Accounts can only withdraw to these addresses.
-     * User can add and remove anytime they want.
-     * All balances will be tied to User's account ID not individual addresses. (may change***)
-     * If user deposits from bank they will have to add an address to withdraw to self custody and use that address to call withdrawl.
-     * If user deposits from a self custody wallet the depositing address will be added automatically.
+     * @notice s_accountPermittedAddresses tracks permitted wallet addresses that can withdraw funds from the SAYV LP for each account.
+     * This adds the ability for the user to recover their funds if access to original account is lost or for inheritance planning.
+     * Accounts can only withdraw funds from the SAYV LP using these accounts or original account address.
+     * If user deposits from a self custody wallet the depositing address will be automatically permitted.
+     * User can add and remove addresses anytime they want.
      */
-    mapping(bytes32 accountId => mapping(address userWalletAddress => bool isActive)) public s_accountAddressBook;
+    mapping(address account => mapping(address permittedAddress => bool isPermitted)) public s_accountPermittedAddresses;
 
     event New_Token_Registry_Set(address indexed caller, address indexed newRegistry);
-    event Address_Added_To_Address_Book(bytes32 indexed accountId, address indexed userAddress);
-    event Address_Removed_From_Address_Book(bytes32 indexed accountId, address indexed userAddress);
+    event Address_Permitted(address indexed account, address indexed userAddress);
+    event Address_Removed_From_Permitted_addresses(address indexed account, address indexed userAddress);
 
     constructor(address _tokenRegistry) {
         i_owner = msg.sender;
@@ -63,36 +62,42 @@ contract Sayv {
         emit New_Token_Registry_Set(msg.sender, s_tokenRegistry);
     }
 
-    function addAddressToAddressBook(bytes32 _accountId, address _address) public {
-        if (_address == address(0)) {
-            revert INVALID_ADDRESS(_accountId, _address);
+    function addPermittedAddress(address _account, address _newPermittedAddress) public {
+        if (msg.sender != _account) {
+            revert NOT_ACCOUNT_OWNER(_account);
         }
-        if (_isInAccountAddressBook(_accountId, _address)) {
-            revert ADDRESS_ALREADY_IN_ADDRESS_BOOK(_accountId, _address);
+        if (_newPermittedAddress == address(0)) {
+            revert INVALID_ADDRESS(_account);
+        }
+        if (_isAddressPermitted(_account, _newPermittedAddress)) {
+            revert ADDRESS_ALREADY_PERMITTED(_newPermittedAddress);
         }
 
-        s_accountAddressBook[_accountId][_address] = true;
-        emit Address_Added_To_Address_Book(_accountId, _address);
+        s_accountPermittedAddresses[_account][_newPermittedAddress] = true;
+        emit Address_Permitted(_account, _newPermittedAddress);
     }
 
-    function removeAddressFromAddressBook(bytes32 _accountId, address _address) public {
-        if (_address == address(0)) {
-            revert INVALID_ADDRESS(_accountId, _address);
+    function removePermittedAddress(address _account, address _permittedAddress) public {
+        if (msg.sender != _account) {
+            revert NOT_ACCOUNT_OWNER(_account);
         }
-        if (!_isInAccountAddressBook(_accountId, _address)) {
-            revert ADDRESS_NOT_IN_ADDRESS_BOOK(_accountId, _address);
+        if (_permittedAddress == address(0)) {
+            revert INVALID_ADDRESS(_permittedAddress);
+        }
+        if (!_isAddressPermitted(_account, _permittedAddress)) {
+            revert ADDRESS_NOT_PERMITTED(_permittedAddress);
         }
 
-        s_accountAddressBook[_accountId][_address] = false;
-        emit Address_Removed_From_Address_Book(_accountId, _address);
+        s_accountPermittedAddresses[_account][_permittedAddress] = false;
+        emit Address_Removed_From_Permitted_addresses(_account, _permittedAddress);
     }
 
     function _isApprovedOnRegistry(address _token) internal view returns (bool) {
         return iTokenRegistry.checkIfTokenIsApproved(_token);
     }
 
-    function _isInAccountAddressBook(bytes32 _accountId, address _address) internal view returns (bool) {
-        return s_accountAddressBook[_accountId][_address];
+    function _isAddressPermitted(address _account, address _permittedAddress) internal view returns (bool) {
+        return s_accountPermittedAddresses[_account][_permittedAddress];
     }
 
     function getRegistryContractAddress() public view returns (address) {

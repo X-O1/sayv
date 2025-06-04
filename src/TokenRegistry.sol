@@ -40,12 +40,12 @@ contract TokenRegistry {
     function addTokenToRegistry(address _tokenAddress, uint256 _chainId) external onlyOwner {
         if (_chainId != i_activeChainId) {
             revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
-        } else if (isApproved[_tokenAddress]) {
-            revert TOKEN_ALREADY_APPROVED(_tokenAddress);
-        } else {
-            isApproved[_tokenAddress] = true;
-            tokenDetails[_tokenAddress] = TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId});
         }
+        if (isApproved[_tokenAddress]) {
+            revert TOKEN_ALREADY_APPROVED(_tokenAddress);
+        }
+        isApproved[_tokenAddress] = true;
+        tokenDetails[_tokenAddress] = TokenDetails({tokenAddress: _tokenAddress, chainId: _chainId});
 
         emit Token_Added_To_Registry(_tokenAddress, _chainId);
     }
@@ -53,11 +53,11 @@ contract TokenRegistry {
     function removeTokenFromRegistry(address _tokenAddress, uint256 _chainId) external onlyOwner {
         if (_chainId != i_activeChainId) {
             revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
-        } else if (!isApproved[_tokenAddress]) {
-            revert TOKEN_NOT_APPROVED(_tokenAddress);
-        } else {
-            isApproved[_tokenAddress] = false;
         }
+        if (!isApproved[_tokenAddress]) {
+            revert TOKEN_NOT_APPROVED(_tokenAddress);
+        }
+        isApproved[_tokenAddress] = false;
         emit Token_Removed_From_Registry(_tokenAddress, _chainId);
     }
 

@@ -10,6 +10,7 @@ error REGISTRY_ADDRESS_ALREADY_SET(address attemptedRegistry, address activeRegi
 error ADDRESS_NOT_VALID(address invalidAddress);
 error TOKEN_ALREADY_APPROVED(address tokenAddress);
 error NOT_ACTIVE_CHAIN_ID(uint256 chainId, uint256 activeChainId);
-error ADDRESS_ALREADY_IN_ADDRESS_BOOK(bytes32 accountId, address userAddress);
-error ADDRESS_NOT_IN_ADDRESS_BOOK(bytes32 accountId, address userAddress);
-error INVALID_ADDRESS(bytes32 accountId, address userAddress);
+error ADDRESS_ALREADY_PERMITTED(address userAddress);
+error ADDRESS_NOT_PERMITTED(address userAddress);
+error INVALID_ADDRESS(address userAddress);
+error NOT_ACCOUNT_OWNER(address accountOwner);
