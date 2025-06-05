@@ -2,11 +2,11 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Sayv} from "../../src/Sayv.sol";
+import {AccountManager} from "../../src/AccountManager.sol";
 import {TokenRegistry} from "../../src/TokenRegistry.sol";
 
-contract SayvTest is Test {
-    Sayv public sayv;
+contract AccountingTest is Test {
+    AccountManager public accountManager;
     TokenRegistry public tokenRegistry;
 
     address dev = makeAddr("dev");
@@ -25,7 +25,7 @@ contract SayvTest is Test {
         vm.startPrank(dev);
         tokenRegistry = new TokenRegistry();
         tokenRegistryContractAddress = tokenRegistry.getRegistryContractAddress();
-        sayv = new Sayv(tokenRegistryContractAddress);
+        accountManager = new AccountManager(tokenRegistryContractAddress);
         vm.stopPrank();
 
         vm.deal(dev, 10 ether);

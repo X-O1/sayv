@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import {Script} from "forge-std/Script.sol";
-import {Sayv} from "../src/Sayv.sol";
+import {AccountManager} from "../src/AccountManager.sol";
 import {TokenRegistry} from "../src/TokenRegistry.sol";
 
 pragma solidity ^0.8.30;
@@ -9,12 +9,12 @@ pragma solidity ^0.8.30;
 contract DeploySayv is Script {
     event Give_Owner(address indexed owner);
 
-    function run() external returns (Sayv) {
+    function run() external returns (AccountManager) {
         vm.startBroadcast();
         TokenRegistry tokenRegistry = new TokenRegistry();
         address tokenRegistryContractAddress = tokenRegistry.getRegistryContractAddress();
-        Sayv sayv = new Sayv(tokenRegistryContractAddress);
+        AccountManager accountManager = new AccountManager(tokenRegistryContractAddress);
         vm.stopBroadcast();
-        return (sayv);
+        return (accountManager);
     }
 }
