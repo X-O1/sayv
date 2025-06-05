@@ -3,26 +3,26 @@ pragma solidity ^0.8.30;
 
 import "./Errors.sol";
 import {IAccountManager} from "./interfaces/IAccountManager.sol";
-import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IPool} from "@aave-v3-core/IPool.sol";
+import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 
 contract SayvVault {
-    IAccountManager internal iAccountManager;
-    IPool internal iPoolAave;
+    bool public isVaultActive; // Vault factory must call true to activate the vault.
+
+    IAccountManager immutable i_AccountManager;
+    IPool immutable i_activeYieldPool;
     address immutable i_owner;
-    address[] public s_allVaults; // To start USDC and aUSDC
+    address immutable i_vaultToken;
 
-    mapping(address vault => bool isActive) public s_activeVaults;
-    mapping(address vault => uint256 balance) public s_VaultBalance;
-    mapping(address vault => uint256 balance) public s_advances;
-    mapping(address vault => uint256 balance) public s_advanceFeesEarned;
+    mapping(address vault => mapping(address token => uint256 balance)) public s_VaultBalance;
+    mapping(address vault => mapping(address token => uint256 balance)) public s_advanceBalance;
+    mapping(address vault => mapping(address token => uint256 balance)) public s_advanceFeesEarned;
 
-    event Vault_Created(address indexed token);
-
-    constructor(address _accountManager, address _iPoolAave) {
+    constructor(address _accountManager, address _activeYieldPool, address _token) {
         i_owner = msg.sender;
-        iAccountManager = IAccountManager(_accountManager);
-        iPoolAave = IPool(_iPoolAave);
+        i_AccountManager = IAccountManager(_accountManager);
+        i_activeYieldPool = IPool(_activeYieldPool);
+        i_vaultToken = _token;
     }
 
     modifier onlyOwner() {
@@ -32,18 +32,6 @@ contract SayvVault {
         _;
     }
 
-    function createVault(address _token) public onlyOwner {
-        if (!iAccountManager._isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_APPROVED(_token);
-        }
-        if (s_activeVaults[_token]) {
-            revert POOL_ALREADY_EXIST(_token);
-        }
-        s_activeVaults[_token] = true;
-        s_allVaults.push(_token);
-
-        emit Vault_Created(_token);
-    }
-
+    function deposit(address _token, uint256 _amount) external {}
     // Deposit into sayv auto sends to aave.
 }
