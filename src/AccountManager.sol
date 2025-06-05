@@ -87,7 +87,7 @@ contract AccountManager {
             revert NOT_ACCOUNT_OWNER(_account);
         }
         if (_newPermittedAddress == address(0)) {
-            revert INVALID_ADDRESS(_account);
+            revert INVALID_ADDRESS();
         }
         if (_isAddressPermitted(_account, _newPermittedAddress)) {
             revert ADDRESS_ALREADY_PERMITTED(_newPermittedAddress);
@@ -107,7 +107,7 @@ contract AccountManager {
             revert NOT_ACCOUNT_OWNER(_account);
         }
         if (_permittedAddress == address(0)) {
-            revert INVALID_ADDRESS(_permittedAddress);
+            revert INVALID_ADDRESS();
         }
         if (!_isAddressPermitted(_account, _permittedAddress)) {
             revert ADDRESS_NOT_PERMITTED(_permittedAddress);

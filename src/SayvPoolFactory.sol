@@ -12,7 +12,12 @@ contract SayvPoolFactory {
     address immutable i_owner;
     address[] public s_allPools;
 
+    mapping(address pool => bool isActive) public s_activePools;
     mapping(address pool => uint256 balance) public s_poolBalance;
+    mapping(address pool => uint256 balance) public s_advances;
+    mapping(address pool => uint256 balance) public s_advanceFeesEarned;
+
+    event Pool_Created(address indexed token);
 
     constructor(address _accountManager, address _iPoolAave) {
         i_owner = msg.sender;
@@ -26,4 +31,19 @@ contract SayvPoolFactory {
         }
         _;
     }
+
+    function createPool(address _token) public onlyOwner {
+        if (_token == address(0)) {
+            revert INVALID_ADDRESS();
+        }
+        if (s_activePools[_token]) {
+            revert POOL_ALREADY_EXIST(_token);
+        }
+        s_activePools[_token] = true;
+        s_allPools.push(_token);
+
+        emit Pool_Created(_token);
+    }
+
+    // Deposit into sayv auto sends to aave.
 }
