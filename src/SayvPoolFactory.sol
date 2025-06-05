@@ -7,8 +7,8 @@ import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 contract SayvPoolFactory {
-    IAccountManager internal s_iAccountManager;
-    IPool internal s_iPoolAave;
+    IAccountManager internal iAccountManager;
+    IPool internal iPoolAave;
     address immutable i_owner;
     address[] public s_allPools;
 
@@ -16,8 +16,8 @@ contract SayvPoolFactory {
 
     constructor(address _accountManager, address _iPoolAave) {
         i_owner = msg.sender;
-        s_iAccountManager = IAccountManager(_accountManager);
-        s_iPoolAave = IPool(_iPoolAave);
+        iAccountManager = IAccountManager(_accountManager);
+        iPoolAave = IPool(_iPoolAave);
     }
 
     modifier onlyOwner() {
