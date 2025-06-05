@@ -14,5 +14,5 @@ error ADDRESS_NOT_PERMITTED(address userAddress);
 error INVALID_ADDRESS();
 error NOT_ACCOUNT_OWNER(address accountOwner);
 error NOT_AUTHORIZED();
-error AUTHORIZATION_ALREADY_SET(address poolFactory);
+error AUTHORITY_ALREADY_LOCKED(address poolFactory);
 error POOL_ALREADY_EXIST(address pool);

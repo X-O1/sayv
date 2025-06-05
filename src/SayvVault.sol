@@ -6,18 +6,18 @@ import {IAccountManager} from "./interfaces/IAccountManager.sol";
 import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
-contract SayvPoolFactory {
+contract SayvVault {
     IAccountManager internal iAccountManager;
     IPool internal iPoolAave;
     address immutable i_owner;
-    address[] public s_allPools;
+    address[] public s_allVaults; // To start USDC and aUSDC
 
-    mapping(address pool => bool isActive) public s_activePools;
-    mapping(address pool => uint256 balance) public s_poolBalance;
-    mapping(address pool => uint256 balance) public s_advances;
-    mapping(address pool => uint256 balance) public s_advanceFeesEarned;
+    mapping(address vault => bool isActive) public s_activeVaults;
+    mapping(address vault => uint256 balance) public s_VaultBalance;
+    mapping(address vault => uint256 balance) public s_advances;
+    mapping(address vault => uint256 balance) public s_advanceFeesEarned;
 
-    event Pool_Created(address indexed token);
+    event Vault_Created(address indexed token);
 
     constructor(address _accountManager, address _iPoolAave) {
         i_owner = msg.sender;
@@ -32,17 +32,17 @@ contract SayvPoolFactory {
         _;
     }
 
-    function createPool(address _token) public onlyOwner {
-        if (_token == address(0)) {
-            revert INVALID_ADDRESS();
+    function createVault(address _token) public onlyOwner {
+        if (!iAccountManager._isTokenApprovedOnRegistry(_token)) {
+            revert TOKEN_NOT_APPROVED(_token);
         }
-        if (s_activePools[_token]) {
+        if (s_activeVaults[_token]) {
             revert POOL_ALREADY_EXIST(_token);
         }
-        s_activePools[_token] = true;
-        s_allPools.push(_token);
+        s_activeVaults[_token] = true;
+        s_allVaults.push(_token);
 
-        emit Pool_Created(_token);
+        emit Vault_Created(_token);
     }
 
     // Deposit into sayv auto sends to aave.
