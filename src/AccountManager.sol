@@ -3,11 +3,10 @@ pragma solidity ^0.8.30;
 
 import "./Errors.sol";
 import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
-import {Calculations} from "./Libraries/Calculations.sol";
 
 /// @title AccountManager
 /// @notice Core contract for tracking user balances, debts, and access permissions within the SAYV protocol.
-/// @dev This contract is intended to be called only by the pool factory for state changes.
+/// @dev This contract is intended to be called only by the vault factory for state changes.
 
 contract AccountManager {
     /// @dev Interface for checking approved tokens on the protocol's token registry.
@@ -16,10 +15,10 @@ contract AccountManager {
     /// @dev Owner of the contract, the deployer.
     address immutable i_owner;
 
-    /// @dev Authorized pool factory contract allowed to update account balances.
-    address private s_poolFactory;
+    /// @dev Authorized vault factory contract allowed to update account balances.
+    address private s_vaultFactory;
 
-    /// @dev Once set, s_poolFactory cannot be changed.
+    /// @dev Once set, s_vaultFactory cannot be changed.
     bool private s_authorityLocked;
 
     /// @notice Tracks user's token balances within the protocol.
@@ -38,8 +37,8 @@ contract AccountManager {
     /// @notice Emitted when a permitted address is removed.
     event Address_Removed_From_Permitted_Addresses(address indexed account, address indexed userAddress);
 
-    /// @notice Emitted when the pool factory is locked in and cannot be changed.
-    event Authority_Locked(address indexed poolFactory);
+    /// @notice Emitted when the vault factory is locked in and cannot be changed.
+    event Authority_Locked(address indexed vaultFactory);
 
     /// @param _tokenRegistry Address of the deployed token registry contract.
     constructor(address _tokenRegistry) {
@@ -55,26 +54,26 @@ contract AccountManager {
         _;
     }
 
-    /// @notice Restricts function to only the authorized pool factory.
+    /// @notice Restricts function to only the authorized vault factory.
     modifier onlyAuthorized() {
-        if (msg.sender != s_poolFactory) {
+        if (msg.sender != s_vaultFactory) {
             revert NOT_AUTHORIZED();
         }
         _;
     }
 
     /**
-     * @notice Sets the pool factory address authorized to update balances.
+     * @notice Sets the vault factory address authorized to update balances.
      * @dev This can only be set once by the contract owner.
-     * @param _poolFactory The address of the pool factory contract.
+     * @param _vaultFactory The address of the vault factory contract.
      */
-    function lockAuthority(address _poolFactory) external onlyOwner {
+    function lockAuthority(address _vaultFactory) external onlyOwner {
         if (s_authorityLocked) {
-            revert AUTHORIZATION_ALREADY_SET(_poolFactory);
+            revert AUTHORITY_ALREADY_LOCKED(_vaultFactory);
         }
-        s_poolFactory = _poolFactory;
+        s_vaultFactory = _vaultFactory;
         s_authorityLocked = true;
-        emit Authority_Locked(_poolFactory);
+        emit Authority_Locked(_vaultFactory);
     }
 
     /**
@@ -119,7 +118,7 @@ contract AccountManager {
 
     /**
      * @notice Updates the user's internal token and debt balances.
-     * @dev Only callable by the authorized pool factory. Validates token is whitelisted.
+     * @dev Only callable by the authorized vault factory. Validates token is whitelisted.
      * @param _account The user's address.
      * @param _token The token to update balances for.
      * @param _tokenBalance New total token balance.
@@ -161,7 +160,7 @@ contract AccountManager {
      * @param _token The token address to verify.
      * @return True if the token is approved.
      */
-    function _isTokenApprovedOnRegistry(address _token) internal view returns (bool) {
+    function _isTokenApprovedOnRegistry(address _token) public view returns (bool) {
         return iTokenRegistry.checkIfTokenIsApproved(_token);
     }
 
@@ -171,7 +170,7 @@ contract AccountManager {
      * @param _permittedAddress The address to check.
      * @return True if the address is permitted.
      */
-    function _isAddressPermitted(address _account, address _permittedAddress) internal view returns (bool) {
+    function _isAddressPermitted(address _account, address _permittedAddress) public view returns (bool) {
         return s_accountPermittedAddresses[_account][_permittedAddress];
     }
 }

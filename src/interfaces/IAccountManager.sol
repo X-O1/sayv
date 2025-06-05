@@ -54,4 +54,8 @@ interface IAccountManager {
      * @return The amount of tokens the user has in their account.
      */
     function getAccountTokenBalance(address _account, address _token) external view returns (uint256);
+
+    function _isAddressPermitted(address _account, address _permittedAddress) external view returns (bool);
+
+    function _isTokenApprovedOnRegistry(address _token) external view returns (bool);
 }
