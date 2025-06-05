@@ -8,10 +8,10 @@ interface IAccountManager {
 
     /**
      *
-     * @param _poolFactory address of the only contract authorized to make updates to account balances.
+     * @param _vaultFactory address of the only contract authorized to make updates to account balances.
      * @notice Can only be set one time.
      */
-    function lockAuthority(address _poolFactory) external;
+    function lockAuthority(address _vaultFactory) external;
 
     /**
      *

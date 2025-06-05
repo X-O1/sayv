@@ -64,7 +64,8 @@ contract AccountManager {
 
     /**
      * @notice Sets the vault factory address authorized to update balances.
-     * @dev This can only be set once by the contract owner.
+     * @dev This will be set in constructor of the Vault Factory.
+     * Can only be set once.
      * @param _vaultFactory The address of the vault factory contract.
      */
     function lockAuthority(address _vaultFactory) external onlyOwner {
