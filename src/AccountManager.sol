@@ -49,7 +49,7 @@ contract AccountManager {
     /// @notice Restricts function to only the contract owner.
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
-            revert NOT_OWNER(msg.sender, i_owner);
+            revert NOT_OWNER();
         }
         _;
     }
@@ -70,7 +70,7 @@ contract AccountManager {
      */
     function lockAuthority(address _vaultFactory) external onlyOwner {
         if (s_authorityLocked) {
-            revert AUTHORITY_ALREADY_LOCKED(_vaultFactory);
+            revert AUTHORITY_ALREADY_LOCKED();
         }
         s_vaultFactory = _vaultFactory;
         s_authorityLocked = true;
@@ -84,13 +84,13 @@ contract AccountManager {
      */
     function addPermittedAddress(address _account, address _newPermittedAddress) external {
         if (msg.sender != _account) {
-            revert NOT_ACCOUNT_OWNER(_account);
+            revert NOT_ACCOUNT_OWNER();
         }
         if (_newPermittedAddress == address(0)) {
             revert INVALID_ADDRESS();
         }
         if (_isAddressPermitted(_account, _newPermittedAddress)) {
-            revert ADDRESS_ALREADY_PERMITTED(_newPermittedAddress);
+            revert ADDRESS_ALREADY_PERMITTED();
         }
 
         s_accountPermittedAddresses[_account][_newPermittedAddress] = true;
@@ -104,13 +104,13 @@ contract AccountManager {
      */
     function removePermittedAddress(address _account, address _permittedAddress) external {
         if (msg.sender != _account) {
-            revert NOT_ACCOUNT_OWNER(_account);
+            revert NOT_ACCOUNT_OWNER();
         }
         if (_permittedAddress == address(0)) {
             revert INVALID_ADDRESS();
         }
         if (!_isAddressPermitted(_account, _permittedAddress)) {
-            revert ADDRESS_NOT_PERMITTED(_permittedAddress);
+            revert ADDRESS_NOT_PERMITTED();
         }
 
         s_accountPermittedAddresses[_account][_permittedAddress] = false;
@@ -122,18 +122,27 @@ contract AccountManager {
      * @dev Only callable by the authorized vault factory. Validates token is whitelisted.
      * @param _account The user's address.
      * @param _token The token to update balances for.
-     * @param _tokenBalance New total token balance.
-     * @param _debtBalance New total debt owed for this token.
+     * @param _amount New total token balance.
      */
-    function updateAccountBalances(address _account, address _token, uint256 _tokenBalance, uint256 _debtBalance)
-        external
-        onlyAuthorized
-    {
+    function updateAccountBalance(address _account, address _token, uint256 _amount) external onlyAuthorized {
         if (!_isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_APPROVED(_token);
+            revert TOKEN_NOT_ALLOWED();
         }
-        s_accountTokenBalance[_account][_token] = _tokenBalance;
-        s_accountDebtBalance[_account][_token] = _debtBalance;
+        s_accountTokenBalance[_account][_token] += _amount;
+    }
+
+    /**
+     * @notice Updates the user's internal token and debt balances.
+     * @dev Only callable by the authorized vault factory. Validates token is whitelisted.
+     * @param _account The user's address.
+     * @param _token The token to update balances for.
+     * @param _amount New total debt owed for this token.
+     */
+    function updateAccountDebt(address _account, address _token, uint256 _amount) external onlyAuthorized {
+        if (!_isTokenApprovedOnRegistry(_token)) {
+            revert TOKEN_NOT_ALLOWED();
+        }
+        s_accountDebtBalance[_account][_token] += _amount;
     }
 
     /**

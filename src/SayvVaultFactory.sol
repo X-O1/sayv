@@ -24,17 +24,17 @@ contract SayvVaultFactory {
 
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
-            revert NOT_OWNER(msg.sender, i_owner);
+            revert NOT_OWNER();
         }
         _;
     }
 
     function createVault(address activeYieldPool, address _token) external onlyOwner returns (SayvVault) {
         if (!i_AccountManager._isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_APPROVED(_token);
+            revert TOKEN_NOT_ALLOWED();
         }
         if (s_activeVaults[_token]) {
-            revert VAULT_ALREADY_EXIST(_token);
+            revert VAULT_ALREADY_EXIST();
         }
         s_activeVaults[_token] = true;
         s_allActiveVaults.push(_token);
