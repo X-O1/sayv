@@ -29,15 +29,23 @@ interface IAccountManager {
      */
     function removePermittedAddress(address _account, address _permittedAddress) external;
     /**
-     * @notice Updates both the token and debt balances for a user's account.
-     * @dev Callable by authorized external contracts to sync account state.
-     * @param _account The address of the user's account.
-     * @param _token The token address for which the balances are being updated.
-     * @param _tokenBalance The new token balance for the account.
-     * @param _debtBalance The new debt balance for the account.
+     * /**
+     * @notice Updates the user's internal token and debt balances.
+     * @dev Only callable by the authorized vault factory. Validates token is whitelisted.
+     * @param _account The user's address.
+     * @param _token The token to update balances for.
+     * @param _amount New total token balance.
      */
-    function updateAccountBalances(address _account, address _token, uint256 _tokenBalance, uint256 _debtBalance)
-        external;
+    function updateAccountBalance(address _account, address _token, uint256 _amount) external;
+
+    /**
+     * @notice Updates the user's internal token and debt balances.
+     * @dev Only callable by the authorized vault factory. Validates token is whitelisted.
+     * @param _account The user's address.
+     * @param _token The token to update balances for.
+     * @param _amount New total debt owed for this token.
+     */
+    function updateAccountDebt(address _account, address _token, uint256 _amount) external;
 
     /**
      * @notice Returns the current debt balance of a user for a specific token.

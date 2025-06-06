@@ -43,7 +43,7 @@ contract TokenRegistry {
     /// @notice Restricts function to only the contract owner.
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
-            revert NOT_OWNER(msg.sender, i_owner);
+            revert NOT_OWNER();
         }
         _;
     }
@@ -56,10 +56,10 @@ contract TokenRegistry {
      */
     function addTokenToRegistry(address _tokenAddress, uint256 _chainId) external onlyOwner {
         if (_chainId != i_activeChainId) {
-            revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
+            revert NOT_ACTIVE_CHAIN_ID();
         }
         if (isApproved[_tokenAddress]) {
-            revert TOKEN_ALREADY_APPROVED(_tokenAddress);
+            revert TOKEN_ALREADY_APPROVED();
         }
 
         isApproved[_tokenAddress] = true;
@@ -76,10 +76,10 @@ contract TokenRegistry {
      */
     function removeTokenFromRegistry(address _tokenAddress, uint256 _chainId) external onlyOwner {
         if (_chainId != i_activeChainId) {
-            revert NOT_ACTIVE_CHAIN_ID(_chainId, i_activeChainId);
+            revert NOT_ACTIVE_CHAIN_ID();
         }
         if (!isApproved[_tokenAddress]) {
-            revert TOKEN_NOT_APPROVED(_tokenAddress);
+            revert TOKEN_NOT_ALLOWED();
         }
 
         isApproved[_tokenAddress] = false;

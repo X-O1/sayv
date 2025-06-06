@@ -3,16 +3,18 @@ pragma solidity ^0.8.30;
 /// @notice Custom errors for Sayv Protocol
 
 /// @notice Custom Errors for the SAYV Protocol
-error NOT_OWNER(address caller, address owner);
-error TOKEN_NOT_APPROVED(address token);
-error REGISTRY_ADDRESS_ALREADY_SET(address attemptedRegistry, address activeRegistry);
-error ADDRESS_NOT_VALID(address invalidAddress);
-error TOKEN_ALREADY_APPROVED(address tokenAddress);
-error NOT_ACTIVE_CHAIN_ID(uint256 chainId, uint256 activeChainId);
-error ADDRESS_ALREADY_PERMITTED(address userAddress);
-error ADDRESS_NOT_PERMITTED(address userAddress);
+error NOT_OWNER();
+error TOKEN_NOT_ALLOWED();
+error REGISTRY_ADDRESS_ALREADY_SET();
+error ADDRESS_NOT_VALID();
+error TOKEN_ALREADY_APPROVED();
+error NOT_ACTIVE_CHAIN_ID();
+error ADDRESS_ALREADY_PERMITTED();
+error ADDRESS_NOT_PERMITTED();
 error INVALID_ADDRESS();
-error NOT_ACCOUNT_OWNER(address accountOwner);
+error NOT_ACCOUNT_OWNER();
 error NOT_AUTHORIZED();
-error AUTHORITY_ALREADY_LOCKED(address vaultFactory);
-error VAULT_ALREADY_EXIST(address vault);
+error AUTHORITY_ALREADY_LOCKED();
+error VAULT_ALREADY_EXIST();
+error APPROVING_TOKEN_ALLOWANCE_FAILED();
+error AMOUNT_NOT_APPROVED();
