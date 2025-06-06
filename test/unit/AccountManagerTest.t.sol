@@ -3,11 +3,9 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {AccountManager} from "../../src/AccountManager.sol";
-import {TokenRegistry} from "../../src/TokenRegistry.sol";
 
 contract AccountingTest is Test {
     AccountManager public accountManager;
-    TokenRegistry public tokenRegistry;
 
     address dev = makeAddr("dev");
     address user = makeAddr("user");
@@ -23,9 +21,7 @@ contract AccountingTest is Test {
 
     function setUp() external {
         vm.startPrank(dev);
-        tokenRegistry = new TokenRegistry();
-        tokenRegistryContractAddress = tokenRegistry.getRegistryContractAddress();
-        accountManager = new AccountManager(tokenRegistryContractAddress);
+        accountManager = new AccountManager();
         vm.stopPrank();
 
         vm.deal(dev, 10 ether);

@@ -2,16 +2,12 @@
 pragma solidity ^0.8.30;
 
 import "./Errors.sol";
-import {ITokenRegistry} from "../src/interfaces/ITokenRegistry.sol";
 
 /// @title AccountManager
 /// @notice Core contract for tracking user balances, debts, and access permissions within the SAYV protocol.
 /// @dev This contract is intended to be called only by the vault factory for state changes.
 
 contract AccountManager {
-    /// @dev Interface for checking approved tokens on the protocol's token registry.
-    ITokenRegistry immutable iTokenRegistry;
-
     /// @dev Owner of the contract, the deployer.
     address immutable i_owner;
 
@@ -40,10 +36,8 @@ contract AccountManager {
     /// @notice Emitted when the vault factory is locked in and cannot be changed.
     event Authority_Locked(address indexed vaultFactory);
 
-    /// @param _tokenRegistry Address of the deployed token registry contract.
-    constructor(address _tokenRegistry) {
+    constructor() {
         i_owner = msg.sender;
-        iTokenRegistry = ITokenRegistry(_tokenRegistry);
     }
 
     /// @notice Restricts function to only the contract owner.
@@ -125,9 +119,6 @@ contract AccountManager {
      * @param _amount New total token balance.
      */
     function updateAccountBalance(address _account, address _token, uint256 _amount) external onlyAuthorized {
-        if (!_isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_ALLOWED();
-        }
         s_accountTokenBalance[_account][_token] += _amount;
     }
 
@@ -139,9 +130,6 @@ contract AccountManager {
      * @param _amount New total debt owed for this token.
      */
     function updateAccountDebt(address _account, address _token, uint256 _amount) external onlyAuthorized {
-        if (!_isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_ALLOWED();
-        }
         s_accountDebtBalance[_account][_token] += _amount;
     }
 
@@ -161,17 +149,8 @@ contract AccountManager {
      * @param _token The token to query.
      * @return The available token balance.
      */
-    function getAccountTokenBalance(address _account, address _token) external view returns (uint256) {
+    function getAccountBalance(address _account, address _token) external view returns (uint256) {
         return s_accountTokenBalance[_account][_token] - s_accountDebtBalance[_account][_token];
-    }
-
-    /**
-     * @notice Internal helper to check if a token is approved via the token registry.
-     * @param _token The token address to verify.
-     * @return True if the token is approved.
-     */
-    function _isTokenApprovedOnRegistry(address _token) public view returns (bool) {
-        return iTokenRegistry.checkIfTokenIsApproved(_token);
     }
 
     /**
