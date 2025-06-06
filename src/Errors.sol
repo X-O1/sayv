@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
-/// @notice Custom errors for Sayv Protocol
 
-/// @notice Custom Errors for the SAYV Protocol
+/// @notice Custom errors for Sayv Protocol
 error NOT_OWNER();
 error TOKEN_NOT_ALLOWED();
 error REGISTRY_ADDRESS_ALREADY_SET();
@@ -18,3 +17,4 @@ error AUTHORITY_ALREADY_LOCKED();
 error VAULT_ALREADY_EXIST();
 error APPROVING_TOKEN_ALLOWANCE_FAILED();
 error AMOUNT_NOT_APPROVED();
+error DEPOSIT_FAILED();

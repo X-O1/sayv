@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 interface IAccountManager {
-    event New_Token_Registry_Set(address indexed caller, address indexed newRegistry);
     event Address_Permitted(address indexed account, address indexed userAddress);
     event Address_Removed_From_Permitted_Addresses(address indexed account, address indexed userAddress);
 
@@ -61,9 +60,7 @@ interface IAccountManager {
      * @param _token The token address to query balance for.
      * @return The amount of tokens the user has in their account.
      */
-    function getAccountTokenBalance(address _account, address _token) external view returns (uint256);
+    function getAccountBalance(address _account, address _token) external view returns (uint256);
 
     function _isAddressPermitted(address _account, address _permittedAddress) external view returns (bool);
-
-    function _isTokenApprovedOnRegistry(address _token) external view returns (bool);
 }

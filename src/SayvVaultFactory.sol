@@ -29,17 +29,14 @@ contract SayvVaultFactory {
         _;
     }
 
-    function createVault(address activeYieldPool, address _token) external onlyOwner returns (SayvVault) {
-        if (!i_AccountManager._isTokenApprovedOnRegistry(_token)) {
-            revert TOKEN_NOT_ALLOWED();
-        }
+    function createVault(address _token, address activeYieldPool) external onlyOwner returns (SayvVault) {
         if (s_activeVaults[_token]) {
             revert VAULT_ALREADY_EXIST();
         }
         s_activeVaults[_token] = true;
         s_allActiveVaults.push(_token);
 
-        SayvVault sayvVault = new SayvVault(i_accountManagerAddress, activeYieldPool, _token);
+        SayvVault sayvVault = new SayvVault(_token, activeYieldPool, i_accountManagerAddress);
         emit Vault_Created(_token, activeYieldPool);
         return sayvVault;
     }
