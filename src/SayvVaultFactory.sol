@@ -2,12 +2,9 @@
 pragma solidity ^0.8.30;
 
 import "./Errors.sol";
-import {IAccountManager} from "./interfaces/IAccountManager.sol";
 import {SayvVault} from "./SayvVault.sol";
 
 contract SayvVaultFactory {
-    IAccountManager immutable i_AccountManager;
-    address immutable i_accountManagerAddress;
     address immutable i_owner;
     address[] public s_allActiveVaults; // To start USDC and aUSDC
 
@@ -15,11 +12,8 @@ contract SayvVaultFactory {
 
     event Vault_Created(address indexed token, address indexed activeYieldPool);
 
-    constructor(address _accountManager) {
+    constructor() {
         i_owner = msg.sender;
-        i_AccountManager = IAccountManager(_accountManager);
-        i_AccountManager.lockAuthority(address(this));
-        i_accountManagerAddress = _accountManager;
     }
 
     modifier onlyOwner() {
@@ -36,7 +30,7 @@ contract SayvVaultFactory {
         s_activeVaults[_token] = true;
         s_allActiveVaults.push(_token);
 
-        SayvVault sayvVault = new SayvVault(_token, activeYieldPool, i_accountManagerAddress);
+        SayvVault sayvVault = new SayvVault(_token, activeYieldPool);
         emit Vault_Created(_token, activeYieldPool);
         return sayvVault;
     }

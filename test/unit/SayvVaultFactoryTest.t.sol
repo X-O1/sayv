@@ -2,11 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {AccountManager} from "../../src/AccountManager.sol";
+import {SayvVaultFactory} from "../../src/SayvVaultFactory.sol";
 
-contract AccountingTest is Test {
-    AccountManager public accountManager;
-
+contract SayvVaultFactoryTest is Test {
     address dev = makeAddr("dev");
     address user = makeAddr("user");
     address usdcBaseSepoliaAddress = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
@@ -21,7 +19,6 @@ contract AccountingTest is Test {
 
     function setUp() external {
         vm.startPrank(dev);
-        accountManager = new AccountManager();
         vm.stopPrank();
 
         vm.deal(dev, 10 ether);
