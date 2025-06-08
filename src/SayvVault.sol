@@ -264,7 +264,7 @@ contract SayvVault {
 
     /// @notice Returns how much equity a user can withdraw (not locked)
     function getAccountAvailableEquity(address _account) public view returns (uint256) {
-        return s_accountBalances[_account].accountEquity - s_accountBalances[_account].lockedEquity;
+        return _getVaultEquity(_account) - s_accountBalances[_account].lockedEquity;
     }
 
     /// @notice Returns user’s outstanding advance balance
