@@ -240,11 +240,6 @@ contract SayvVault {
         return (s_totalVaultAdvances * 100) / s_totalVaultDeposits;
     }
 
-    /// @notice Returns the percentage of the vault owned by a user
-    function _getVaultEquity(address _account) internal view returns (uint256) {
-        return (getAccountTotalEquity(_account) * 100) / s_totalVaultDeposits;
-    }
-
     /// @notice Checks if there is room for more advances (advances < deposits)
     function _isTotalAdvancesLessThanTotalDeposits() internal view returns (bool) {
         bool isLessThan;
@@ -257,6 +252,11 @@ contract SayvVault {
         return isLessThan;
     }
 
+    /// @notice Returns the percentage of the vault owned by a user
+    function _getAccountVaultEquity(address _account) internal view returns (uint256) {
+        return (getAccountTotalEquity(_account) * 100) / s_totalVaultDeposits;
+    }
+
     /// @notice Returns total equity of a user
     function getAccountTotalEquity(address _account) public view returns (uint256) {
         return s_accountBalances[_account].accountEquity;
@@ -264,7 +264,7 @@ contract SayvVault {
 
     /// @notice Returns how much equity a user can withdraw (not locked)
     function getAccountAvailableEquity(address _account) public view returns (uint256) {
-        return _getVaultEquity(_account) - s_accountBalances[_account].lockedEquity;
+        return _getAccountVaultEquity(_account) - s_accountBalances[_account].lockedEquity;
     }
 
     /// @notice Returns user’s outstanding advance balance
