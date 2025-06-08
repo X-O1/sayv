@@ -120,7 +120,7 @@ contract SayvVault {
         if (_repay) {
             depositToVault(_amount, _repay);
         }
-        // Check if amount does not equal more percentage of the vault than account has rights to.
+        // Checks amount does not equal more percentage of the vault than the account owns.
         if (_isAmountMoreThanAccountVaultEquity(_amount)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
@@ -253,7 +253,7 @@ contract SayvVault {
         return isLessThan;
     }
 
-    /// @notice Check if amount does not equal more percentage of the vault than account has rights to.
+    /// @notice Check if amount does not equal more percentage of the vault than the account owns.
     function _isAmountMoreThanAccountVaultEquity(uint256 _amount) internal view returns (bool) {
         uint256 percentAmountIsOfVault = _amount.divWadDown(s_totalVaultDeposits);
         uint256 percentOfVaultEquity = _getAccountVaultEquityPercentage(msg.sender);
