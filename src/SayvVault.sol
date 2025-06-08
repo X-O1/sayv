@@ -20,6 +20,8 @@ contract SayvVault {
     address immutable i_vaultTokenAddress;
     /// @notice Address of the Aave Pool or similar yield strategy
     address immutable i_activePool;
+    /// @notice Number of decimals the vault token has. Needed to convert WAD numbers
+    uint256 immutable i_vaultTokenNumOfDecimals;
 
     /// @dev Initialized to track total vault-wide deposits and advances
     uint256 private s_totalVaultDeposits = s_vaultBalances[address(this)].totalDeposits;
@@ -64,11 +66,12 @@ contract SayvVault {
     /// @notice Constructor sets immutable parameters
     /// @param _token The vault token (e.g. USDC)
     /// @param _activePool The external yield protocol address (e.g. Aave pool)
-    constructor(address _token, address _activePool) {
+    constructor(address _token, uint256 _numOfTokenDecimals, address _activePool) {
         i_vaultToken = IERC20(_token); // Sets the token contract for vault operations
         i_owner = msg.sender; // Sets the owner of the contract to the deployer
         i_activePool = _activePool; // Saves the yield pool address (like Aave’s)
         i_vaultTokenAddress = _token; // Cache for token address (for readability/logs)
+        i_vaultTokenNumOfDecimals = _numOfTokenDecimals;
     }
 
     /// @notice Restricts access to the contract owner
@@ -118,7 +121,8 @@ contract SayvVault {
             depositToVault(_amount, _repay);
         }
         // Ensure withdrawal amount is within available (non-locked) equity
-        if (_amount > getAccountAvailableEquity(msg.sender)) {
+
+        if (_amount > fromWadToTokenDecimals(getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
         if (!_repay) {
@@ -142,17 +146,20 @@ contract SayvVault {
         }
 
         // User can't borrow more than their available equity
-        if (_amount > getAccountAvailableEquity(msg.sender)) {
+        if (_amount > fromWadToTokenDecimals(getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
 
         // Enforce max advance % logic (e.g. can’t borrow 90% of equity if cap is 60%)
-        if (_getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender)) > _getAdvancePercentageMax()) {
+        if (
+            fromWadToTokenDecimals(
+                _getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender)), i_vaultTokenNumOfDecimals
+            ) > fromWadToTokenDecimals(_getAdvancePercentageMax(), i_vaultTokenNumOfDecimals)
+        ) {
             revert ADVANCE_MAX_REACHED();
         }
-
         // Calculate fees based on vault config + amount being borrowed
-        uint256 advanceFee = _getFeeForAdvance(_equity, _amount);
+        uint256 advanceFee = fromWadToTokenDecimals(_getFeeForAdvance(_equity, _amount), i_vaultTokenNumOfDecimals);
         uint256 requestedAdvancePlusFee = _amount + advanceFee; // Total debt incurred
         uint256 advanceMinusFee = _amount - advanceFee; // Actual funds user receives
 
@@ -211,6 +218,11 @@ contract SayvVault {
         return _getAdvancePercentageOfDeposits() > 25 ? 25 : _getAdvancePercentageOfDeposits();
     }
 
+    /// @notice Gets the maximum advance percentage a user is allowed
+    function _getAdvancePercentageMax() internal view returns (uint256) {
+        return 100 - _getAdvancePercentageOfDeposits();
+    }
+
     /// @notice Calculates the fee for a specific advance
     function _getFeeForAdvance(uint256 _equity, uint256 _amount) internal view returns (uint256) {
         uint256 baseFeePercentage = _getVaultAdvanceFee();
@@ -219,11 +231,6 @@ contract SayvVault {
         uint256 bonusFee = baseFee.mulWadDown(advanceToEquityRatio);
 
         return baseFee + bonusFee;
-    }
-
-    /// @notice Gets the maximum advance percentage a user is allowed
-    function _getAdvancePercentageMax() internal view returns (uint256) {
-        return 100 - _getAdvancePercentageOfDeposits();
     }
 
     /// @notice Calculates advance/equity ratio in percent
@@ -244,12 +251,7 @@ contract SayvVault {
     /// @notice Checks if there is room for more advances (advances < deposits)
     function _isTotalAdvancesLessThanTotalDeposits() internal view returns (bool) {
         bool isLessThan;
-        if (s_totalVaultAdvances < s_totalVaultDeposits) {
-            isLessThan = true;
-        }
-        if (s_totalVaultAdvances >= s_totalVaultDeposits) {
-            isLessThan = false;
-        }
+        s_totalVaultAdvances < s_totalVaultDeposits ? isLessThan = true : isLessThan = false;
         return isLessThan;
     }
 
@@ -271,5 +273,13 @@ contract SayvVault {
     /// @notice Returns amount of equity locked due to an advance
     function getAccountLockedEquity(address _account) public view returns (uint256) {
         return s_accountBalances[_account].lockedEquity;
+    }
+
+    /// @notice Converts wad numbers to their orginal decimals
+    function fromWadToTokenDecimals(uint256 _wadAmount, uint256 _tokenDecimals) internal pure returns (uint256) {
+        if (_tokenDecimals >= 18) {
+            revert TOO_MANY_DECIMALS();
+        }
+        return _wadAmount / (10 ** (18 - _tokenDecimals));
     }
 }

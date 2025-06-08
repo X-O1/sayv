@@ -23,15 +23,19 @@ contract SayvVaultFactory {
         _;
     }
 
-    function createVault(address _token, address activePool) external onlyOwner returns (SayvVault) {
+    function createVault(address _token, uint256 _numOfTokenDecimals, address _activePool)
+        external
+        onlyOwner
+        returns (SayvVault)
+    {
         if (s_activeVaults[_token]) {
             revert VAULT_ALREADY_EXIST();
         }
         s_activeVaults[_token] = true;
         s_allActiveVaults.push(_token);
 
-        SayvVault sayvVault = new SayvVault(_token, activePool);
-        emit Vault_Created(_token, activePool);
+        SayvVault sayvVault = new SayvVault(_token, _numOfTokenDecimals, _activePool);
+        emit Vault_Created(_token, _activePool);
         return sayvVault;
     }
 }
