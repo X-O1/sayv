@@ -4,11 +4,14 @@ pragma solidity ^0.8.30;
 import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/IPool.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 /// @title SayvVault
 /// @notice Handles user deposits, withdrawals, advances on yield, and interactions with an external yield pool
 /// @dev Integrates an external yield pool like Aave IPool for yield operations using vaultToken as underlying asset
 contract SayvVault {
+    using FixedPointMathLib for uint256;
+
     /// @notice The ERC20 token this vault accepts (e.g. USDC)
     IERC20 immutable i_vaultToken;
     /// @notice Owner of the contract, has special permissions
@@ -149,9 +152,7 @@ contract SayvVault {
         }
 
         // Calculate fees based on vault config + amount being borrowed
-        uint256 advanceFee = _getFeeForAdvance(
-            msg.sender, _equity, _getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender))
-        );
+        uint256 advanceFee = _getFeeForAdvance(_equity, _amount);
         uint256 requestedAdvancePlusFee = _amount + advanceFee; // Total debt incurred
         uint256 advanceMinusFee = _amount - advanceFee; // Actual funds user receives
 
@@ -207,22 +208,17 @@ contract SayvVault {
 
     /// @notice Returns vault’s current advance fee, capped at 25%
     function _getVaultAdvanceFee() internal view returns (uint256) {
-        if (_getAdvancePercentageOfDeposits() > 25) {
-            return 25;
-        } else {
-            return _getAdvancePercentageOfDeposits();
-        }
+        return _getAdvancePercentageOfDeposits() > 25 ? 25 : _getAdvancePercentageOfDeposits();
     }
 
     /// @notice Calculates the fee for a specific advance
-    function _getFeeForAdvance(address _account, uint256 _equity, uint256 _advanceToEquityRatio)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 baseFee = (getAccountAdvancedEquity(_account) * _getVaultAdvanceFee()) / 100;
-        uint256 scaledFee = (baseFee * _getAdvanceToEquityRatio(_advanceToEquityRatio, _equity)) / 100;
-        return scaledFee;
+    function _getFeeForAdvance(uint256 _equity, uint256 _amount) internal view returns (uint256) {
+        uint256 baseFeePercentage = _getVaultAdvanceFee();
+        uint256 advanceToEquityRatio = _getAdvanceToEquityRatio(_amount, _equity);
+        uint256 baseFee = _amount.mulWadDown(baseFeePercentage);
+        uint256 bonusFee = baseFee.mulWadDown(advanceToEquityRatio);
+
+        return baseFee + bonusFee;
     }
 
     /// @notice Gets the maximum advance percentage a user is allowed
@@ -232,12 +228,17 @@ contract SayvVault {
 
     /// @notice Calculates advance/equity ratio in percent
     function _getAdvanceToEquityRatio(uint256 _amount, uint256 _equity) internal pure returns (uint256) {
-        return (_amount * 100) / _equity;
+        return _amount.divWadDown(_equity);
     }
 
     /// @notice Gets what % of the vault's total deposits are currently advanced
     function _getAdvancePercentageOfDeposits() internal view returns (uint256) {
-        return (s_totalVaultAdvances * 100) / s_totalVaultDeposits;
+        return s_totalVaultAdvances.divWadDown(s_totalVaultDeposits);
+    }
+
+    /// @notice Returns the percentage of the vault owned by a user
+    function _getAccountVaultEquity(address _account) internal view returns (uint256) {
+        return getAccountTotalEquity(_account).divWadDown(s_totalVaultDeposits);
     }
 
     /// @notice Checks if there is room for more advances (advances < deposits)
@@ -250,11 +251,6 @@ contract SayvVault {
             isLessThan = false;
         }
         return isLessThan;
-    }
-
-    /// @notice Returns the percentage of the vault owned by a user
-    function _getAccountVaultEquity(address _account) internal view returns (uint256) {
-        return (getAccountTotalEquity(_account) * 100) / s_totalVaultDeposits;
     }
 
     /// @notice Returns total equity of a user
