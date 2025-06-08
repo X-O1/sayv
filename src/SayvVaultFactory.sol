@@ -38,4 +38,8 @@ contract SayvVaultFactory {
         emit Vault_Created(_token, _activePool);
         return sayvVault;
     }
+
+    function getOwner() external view returns (address) {
+        return i_owner;
+    }
 }

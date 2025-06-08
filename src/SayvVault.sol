@@ -74,20 +74,20 @@ contract SayvVault {
         i_vaultTokenNumOfDecimals = _numOfTokenDecimals;
     }
 
-    /// @notice Restricts access to the contract owner
-    modifier onlyOwner() {
-        if (msg.sender != i_owner) {
-            revert NOT_OWNER(); // Only allow owner to proceed
-        }
-        _;
-    }
+    // /// @notice Restricts access to the contract owner
+    // modifier onlyOwner() {
+    //     if (msg.sender != i_owner) {
+    //         revert NOT_OWNER(); // Only allow owner to proceed
+    //     }
+    //     _;
+    // }
 
     /// @notice Deposits tokens into the vault and optionally repays user's outstanding advance
     /// @param _amount Amount to deposit
     /// @param _repay Whether this deposit should be applied to the user's debt
     function depositToVault(uint256 _amount, bool _repay) public {
         // Approve this contract to spend vaultToken (this is redundant unless allowance was reset or first deposit)
-        if (!i_vaultToken.approve(address(this), _amount)) {
+        if (i_vaultToken.allowance(msg.sender, address(this)) < _amount) {
             revert APPROVING_TOKEN_ALLOWANCE_FAILED();
         }
 
@@ -294,5 +294,9 @@ contract SayvVault {
             revert TOO_MANY_DECIMALS();
         }
         return _wadAmount / (10 ** (18 - _tokenDecimals));
+    }
+
+    function getVaultAddress() external view returns (address) {
+        return address(this);
     }
 }
