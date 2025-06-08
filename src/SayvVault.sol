@@ -9,14 +9,14 @@ import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 /// @notice Handles user deposits, withdrawals, advances on yield, and interactions with an external yield pool
 /// @dev Integrates an external yield pool like Aave IPool for yield operations using vaultToken as underlying asset
 contract SayvVault {
-    IERC20 immutable i_vaultToken;
     /// @notice The ERC20 token this vault accepts (e.g. USDC)
-    address immutable i_owner;
+    IERC20 immutable i_vaultToken;
     /// @notice Owner of the contract, has special permissions
-    address immutable i_vaultTokenAddress;
+    address immutable i_owner;
     /// @notice Cached address of the vault token
-    address immutable i_activePool;
+    address immutable i_vaultTokenAddress;
     /// @notice Address of the Aave Pool or similar yield strategy
+    address immutable i_activePool;
 
     /// @dev Initialized to track total vault-wide deposits and advances
     uint256 private s_totalVaultDeposits = s_vaultBalances[address(this)].totalDeposits;
@@ -24,27 +24,26 @@ contract SayvVault {
 
     /// @notice Represents a user's balances within the vault
     struct AccountBalance {
-        uint256 accountEquity;
         /// @notice User’s total equity (deposited amount)
-        uint256 lockedEquity;
+        uint256 accountEquity;
         /// @notice Portion locked due to an active advance
+        uint256 lockedEquity;
+        /// @notice Amount user owes due to taking an advance (includes fee)
         uint256 advancedEquity;
     }
-    /// @notice Amount user owes due to taking an advance (includes fee)
 
     /// @notice Represents the state of the vault itself
     struct VaultBalance {
-        uint256 totalDeposits;
         /// @notice Total user deposits
+        uint256 totalDeposits;
+        /// @notice Total value advanced from the vault
         uint256 totalAdvances;
     }
-    /// @notice Total value advanced from the vault
-
-    mapping(address account => AccountBalance) public s_accountBalances;
 
     /// @notice Maps user address to their balance state
+    mapping(address account => AccountBalance) public s_accountBalances;
+    /// @notice Maps vault to its total state
     mapping(address vault => VaultBalance) public s_vaultBalances;
-    /// @notice Maps vault to its total state (single vault here)
 
     /// @notice Emitted when a user deposits into the vault
     event Deposit_To_Vault(address indexed account, address indexed token, uint256 indexed amount);
