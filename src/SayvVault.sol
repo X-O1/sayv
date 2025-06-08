@@ -120,9 +120,12 @@ contract SayvVault {
         if (_repay) {
             depositToVault(_amount, _repay);
         }
+        // Check if amount does not equal more percentage of the vault than account has rights to.
+        if (_isAmountMoreThanAccountVaultEquity(_amount)) {
+            revert INSUFFICIENT_FUNDS_AVAILABLE();
+        }
         // Ensure withdrawal amount is within available (non-locked) equity
-
-        if (_amount > fromWadToTokenDecimals(getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
+        if (_amount > _fromWadToTokenDecimals(_getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
         if (!_repay) {
@@ -146,20 +149,20 @@ contract SayvVault {
         }
 
         // User can't borrow more than their available equity
-        if (_amount > fromWadToTokenDecimals(getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
+        if (_amount > _fromWadToTokenDecimals(_getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
 
         // Enforce max advance % logic (e.g. can’t borrow 90% of equity if cap is 60%)
         if (
-            fromWadToTokenDecimals(
-                _getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender)), i_vaultTokenNumOfDecimals
-            ) > fromWadToTokenDecimals(_getAdvancePercentageMax(), i_vaultTokenNumOfDecimals)
+            _fromWadToTokenDecimals(
+                _getAdvanceToEquityRatio(_amount, _getAccountAvailableEquity(msg.sender)), i_vaultTokenNumOfDecimals
+            ) > _fromWadToTokenDecimals(_getAdvancePercentageMax(), i_vaultTokenNumOfDecimals)
         ) {
             revert ADVANCE_MAX_REACHED();
         }
         // Calculate fees based on vault config + amount being borrowed
-        uint256 advanceFee = fromWadToTokenDecimals(_getFeeForAdvance(_equity, _amount), i_vaultTokenNumOfDecimals);
+        uint256 advanceFee = _fromWadToTokenDecimals(_getFeeForAdvance(_equity, _amount), i_vaultTokenNumOfDecimals);
         uint256 requestedAdvancePlusFee = _amount + advanceFee; // Total debt incurred
         uint256 advanceMinusFee = _amount - advanceFee; // Actual funds user receives
 
@@ -180,7 +183,7 @@ contract SayvVault {
     /// @notice Internal: Repays user’s outstanding advance
     /// @param _amount Amount sent to repay the advance
     function _repayAdvance(uint256 _amount) internal {
-        uint256 advanceBalance = getAccountAdvancedEquity(msg.sender);
+        uint256 advanceBalance = _getAccountAdvancedEquity(msg.sender);
 
         // Full repayment
         if (_amount >= advanceBalance) {
@@ -243,11 +246,6 @@ contract SayvVault {
         return s_totalVaultAdvances.divWadDown(s_totalVaultDeposits);
     }
 
-    /// @notice Returns the percentage of the vault owned by a user
-    function _getAccountVaultEquity(address _account) internal view returns (uint256) {
-        return getAccountTotalEquity(_account).divWadDown(s_totalVaultDeposits);
-    }
-
     /// @notice Checks if there is room for more advances (advances < deposits)
     function _isTotalAdvancesLessThanTotalDeposits() internal view returns (bool) {
         bool isLessThan;
@@ -255,28 +253,43 @@ contract SayvVault {
         return isLessThan;
     }
 
+    /// @notice Check if amount does not equal more percentage of the vault than account has rights to.
+    function _isAmountMoreThanAccountVaultEquity(uint256 _amount) internal view returns (bool) {
+        uint256 percentAmountIsOfVault = _amount.divWadDown(s_totalVaultDeposits);
+        uint256 percentOfVaultEquity = _getAccountVaultEquityPercentage(msg.sender);
+        bool isMoreThan;
+
+        percentAmountIsOfVault > percentOfVaultEquity ? isMoreThan = true : isMoreThan = false;
+        return isMoreThan;
+    }
+
+    /// @notice Returns the percentage of the vault owned by a user
+    function _getAccountVaultEquityPercentage(address _account) internal view returns (uint256) {
+        return _getAccountEquity(_account).divWadDown(s_totalVaultDeposits);
+    }
+
     /// @notice Returns total equity of a user
-    function getAccountTotalEquity(address _account) public view returns (uint256) {
+    function _getAccountEquity(address _account) internal view returns (uint256) {
         return s_accountBalances[_account].accountEquity;
     }
 
     /// @notice Returns how much equity a user can withdraw (not locked)
-    function getAccountAvailableEquity(address _account) public view returns (uint256) {
-        return _getAccountVaultEquity(_account) - s_accountBalances[_account].lockedEquity;
+    function _getAccountAvailableEquity(address _account) internal view returns (uint256) {
+        return _getAccountEquity(_account) - _getAccountLockedEquity(_account);
     }
 
     /// @notice Returns user’s outstanding advance balance
-    function getAccountAdvancedEquity(address _account) public view returns (uint256) {
+    function _getAccountAdvancedEquity(address _account) internal view returns (uint256) {
         return s_accountBalances[_account].advancedEquity;
     }
 
     /// @notice Returns amount of equity locked due to an advance
-    function getAccountLockedEquity(address _account) public view returns (uint256) {
+    function _getAccountLockedEquity(address _account) internal view returns (uint256) {
         return s_accountBalances[_account].lockedEquity;
     }
 
     /// @notice Converts wad numbers to their orginal decimals
-    function fromWadToTokenDecimals(uint256 _wadAmount, uint256 _tokenDecimals) internal pure returns (uint256) {
+    function _fromWadToTokenDecimals(uint256 _wadAmount, uint256 _tokenDecimals) internal pure returns (uint256) {
         if (_tokenDecimals >= 18) {
             revert TOO_MANY_DECIMALS();
         }
