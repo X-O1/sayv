@@ -1,231 +1,252 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import "./Errors.sol";
+import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/IPool.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 
+/// @title SayvVault
+/// @notice Handles user deposits, withdrawals, advances on yield, and interactions with an external yield pool
+/// @dev Integrates an external yield pool like Aave IPool for yield operations using vaultToken as underlying asset
 contract SayvVault {
     IERC20 immutable i_vaultToken;
+    /// @notice The ERC20 token this vault accepts (e.g. USDC)
     address immutable i_owner;
+    /// @notice Owner of the contract, has special permissions
     address immutable i_vaultTokenAddress;
-    address immutable i_activeYieldPool;
+    /// @notice Cached address of the vault token
+    address immutable i_activePool;
+    /// @notice Address of the Aave Pool or similar yield strategy
+
+    /// @dev Initialized to track total vault-wide deposits and advances
     uint256 private s_totalVaultDeposits = s_vaultBalances[address(this)].totalDeposits;
     uint256 private s_totalVaultAdvances = s_vaultBalances[address(this)].totalAdvances;
 
+    /// @notice Represents a user's balances within the vault
     struct AccountBalance {
         uint256 accountEquity;
+        /// @notice User’s total equity (deposited amount)
         uint256 lockedEquity;
+        /// @notice Portion locked due to an active advance
         uint256 advancedEquity;
     }
+    /// @notice Amount user owes due to taking an advance (includes fee)
 
+    /// @notice Represents the state of the vault itself
     struct VaultBalance {
         uint256 totalDeposits;
+        /// @notice Total user deposits
         uint256 totalAdvances;
     }
+    /// @notice Total value advanced from the vault
 
     mapping(address account => AccountBalance) public s_accountBalances;
+
+    /// @notice Maps user address to their balance state
     mapping(address vault => VaultBalance) public s_vaultBalances;
+    /// @notice Maps vault to its total state (single vault here)
 
-    mapping(address account => mapping(address permittedAddress => bool isPermitted)) public s_accountPermittedAddresses;
-
-    event Address_Permitted(address indexed account, address indexed userAddress);
-    event Address_Removed_From_Permitted_Addresses(address indexed account, address indexed userAddress);
+    /// @notice Emitted when a user deposits into the vault
     event Deposit_To_Vault(address indexed account, address indexed token, uint256 indexed amount);
+    /// @notice Emitted when a user withdraws from the vault
     event Withdraw_From_Vault(address indexed token, uint256 indexed amount, address indexed to);
+    /// @notice Emitted when funds are supplied to Aave or another pool
     event Deposit_To_Pool(address indexed token, uint256 indexed amount);
+    /// @notice Emitted when funds are withdrawn from the pool
     event Withdraw_From_Pool(address indexed token, uint256 indexed amount, address indexed to);
-    event Yield_Advance_Repayment(address indexed account, uint256 indexed advanceBalance);
+    /// @notice Emitted when a user takes an advance on their yield
+    event Advance_Taken(address indexed account, uint256 indexed amount);
+    /// @notice Emitted when a user repays their advance
+    event Advance_Repayment(address indexed account, uint256 indexed advanceBalance);
 
-    constructor(address _token, address _activeYieldPool) {
-        i_vaultToken = IERC20(_token);
-        i_owner = msg.sender;
-        i_activeYieldPool = _activeYieldPool;
-        i_vaultTokenAddress = _token;
+    /// @notice Constructor sets immutable parameters
+    /// @param _token The vault token (e.g. USDC)
+    /// @param _activePool The external yield protocol address (e.g. Aave pool)
+    constructor(address _token, address _activePool) {
+        i_vaultToken = IERC20(_token); // Sets the token contract for vault operations
+        i_owner = msg.sender; // Sets the owner of the contract to the deployer
+        i_activePool = _activePool; // Saves the yield pool address (like Aave’s)
+        i_vaultTokenAddress = _token; // Cache for token address (for readability/logs)
     }
 
+    /// @notice Restricts access to the contract owner
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
-            revert NOT_OWNER();
+            revert NOT_OWNER(); // Only allow owner to proceed
         }
         _;
     }
 
-    function depositToVault(uint256 _amount, bool _repayYieldAdvance) public {
+    /// @notice Deposits tokens into the vault and optionally repays user's outstanding advance
+    /// @param _amount Amount to deposit
+    /// @param _repay Whether this deposit should be applied to the user's debt
+    function depositToVault(uint256 _amount, bool _repay) public {
+        // Approve this contract to spend vaultToken (this is redundant unless allowance was reset or first deposit)
         if (!i_vaultToken.approve(address(this), _amount)) {
             revert APPROVING_TOKEN_ALLOWANCE_FAILED();
         }
 
-        if (_repayYieldAdvance) {
-            _repayAdvance(_amount);
-        }
-        if (!_repayYieldAdvance) {
-            s_accountBalances[msg.sender].accountEquity += _amount;
-            s_vaultBalances[address(this)].totalDeposits += _amount;
+        // If user chose to repay their advance with this deposit
+        if (_repay) {
+            _repayAdvance(_amount); // Apply deposit to advance repayment
         }
 
+        // If not repaying, treat it as a deposit
+        if (!_repay) {
+            s_accountBalances[msg.sender].accountEquity += _amount; // Add to user’s equity
+            s_vaultBalances[address(this)].totalDeposits += _amount; // Add to total vault deposits
+        }
+
+        // Move tokens from user to vault
         if (!i_vaultToken.transferFrom(msg.sender, address(this), _amount)) {
             revert DEPOSIT_FAILED();
         }
 
+        // Supply deposit to Aave or similar pool
         _depositToPool(_amount, address(this), 0);
 
-        emit Deposit_To_Vault(msg.sender, i_vaultTokenAddress, _amount);
+        emit Deposit_To_Vault(msg.sender, i_vaultTokenAddress, _amount); // Log deposit
     }
 
-    function withdrawFromVault(uint256 _amount, bool _repayYieldAdvance) external {
-        if (_repayYieldAdvance) {
-            _repayAdvance(_amount);
+    /// @notice Withdraws available equity from the vault, optionally user can repay locked equity to unlock and withdraw
+    /// @param _amount Amount to withdraw
+    function withdrawFromVault(uint256 _amount, bool _repay) external {
+        // If user chose to repay their advance before withdrawl
+        if (_repay) {
+            depositToVault(_amount, _repay);
         }
+        // Ensure withdrawal amount is within available (non-locked) equity
         if (_amount > getAccountAvailableEquity(msg.sender)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
-        if (!_repayYieldAdvance) {
+        if (!_repay) {
             s_accountBalances[msg.sender].accountEquity -= _amount;
             s_vaultBalances[address(this)].totalDeposits -= _amount;
         }
+
+        // Withdraw funds from the external pool and send to user
         _withdrawFromPool(_amount, msg.sender);
 
-        emit Withdraw_From_Vault(i_vaultTokenAddress, _amount, msg.sender);
+        emit Withdraw_From_Vault(i_vaultTokenAddress, _amount, msg.sender); // Log withdrawal
     }
 
-    function takeAdvance(uint256 _requestedAdvance) external view {
-        // checks that the vault has enough for all withdrawls before advancing more equity.
+    /// @notice Allows a user to borrow against their future yield (advance)
+    /// @param _equity Amount of their equity to lock as collateral
+    /// @param _amount Advance amount the user is requesting
+    function takeAdvance(uint256 _equity, uint256 _amount) external {
+        // Ensure the vault has enough liquidity to offer advances
         if (!_isTotalAdvancesLessThanTotalDeposits()) {
             revert ADVANCES_NOT_AVAILABLE();
         }
 
-        //checking if requested advance is more than available equity
-        if (_requestedAdvance > getAccountAvailableEquity(msg.sender)) {
+        // User can't borrow more than their available equity
+        if (_amount > getAccountAvailableEquity(msg.sender)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
 
-        //checking that the advance is less percent of total equtiy than the max percentage allowed.
-        if (
-            _calculatePercentageOfEquityAdvanced(_requestedAdvance, getAccountAvailableEquity(msg.sender))
-                > _calculateAdvancePercentageMax()
-        ) {
+        // Enforce max advance % logic (e.g. can’t borrow 90% of equity if cap is 60%)
+        if (_getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender)) > _getAdvancePercentageMax()) {
             revert ADVANCE_MAX_REACHED();
         }
 
-        // Build notes - ignore
-        // REQUIRE THAT TOTAL ADVANCES < TOTAL DEPOSITS
-        // Lock that equity.
-        // Take the advance fee upfront by sending the user 10% less than the amount they requested (assuming a 10% fee).
-        // This way, the vault profits immediately and fee revenue is easier to track.
-        // Advance fees are not a loan against future yield. They are a loan against accounts vault equity. ***
-        // ??? How to determine the length of the advance based on something *other than time*.
-        // Advances can be taken based on available liquidity.
-        // user should take adavance based onn how long they are not going to touch thier savings amount so it could pay itself back.
+        // Calculate fees based on vault config + amount being borrowed
+        uint256 advanceFee = _getFeeForAdvance(
+            msg.sender, _equity, _getAdvanceToEquityRatio(_amount, getAccountAvailableEquity(msg.sender))
+        );
+        uint256 requestedAdvancePlusFee = _amount + advanceFee; // Total debt incurred
+        uint256 advanceMinusFee = _amount - advanceFee; // Actual funds user receives
+
+        // Update vault state
+        s_vaultBalances[address(this)].totalAdvances += _amount;
+        s_vaultBalances[address(this)].totalDeposits -= _amount;
+
+        // Lock equity and assign the full advance balance (with fee) to the user
+        s_accountBalances[msg.sender].lockedEquity += _equity;
+        s_accountBalances[msg.sender].advancedEquity += requestedAdvancePlusFee;
+
+        // Send funds to user
+        _withdrawFromPool(advanceMinusFee, msg.sender);
+
+        emit Advance_Taken(msg.sender, _amount); // Log advance
     }
 
-    // get fee for individial adnvacnes. get base vault fee and adds aditional fee based on how much of thier equity they are taking out.
-    function _caluculateFeeForAdvance(address _account, uint256 _totalEquity, uint256 _percentageOfEquityAdvanced)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 baseFee = (getAccountAdvancedEquity(_account) * _caluculateVaultAdvanceFee()) / 100;
-        uint256 scaledFee =
-            (baseFee * _calculatePercentageOfEquityAdvanced(_percentageOfEquityAdvanced, _totalEquity)) / 100;
-
-        return scaledFee;
-        // uses their locked ammount to determine how much the fee is applied to
-        // fee goes up the higher % of equity they take an advance on. ie if the advance is 30% of total equity, then the fee is the current fee plus 30% of the current fee charge.
-    }
-
-    // gets the vaults fee for all advances
-    function _caluculateVaultAdvanceFee() internal view returns (uint256) {
-        // fee capped at 25
-        if (_calculateAdvancePercentageOfDeposits() > 25) {
-            return 25;
-        } else {
-            return _calculateAdvancePercentageOfDeposits();
-        }
-        // Build notes - ignore
-        //WORK ON. Needs to be dailed in.
-        // Fee Determined by the number of advances vs total deposits ratio.
-        // lower the ratio lowe the fee. higher the ration higher the fee
-        // maybe if advances are 10% of all deposits the fee is 10% etc. Easy way to cap both.
-    }
-
-    // get the max percentage of thier equity they can take an advance on
-    function _calculateAdvancePercentageMax() internal view returns (uint256) {
-        // Require that percentage of equity advanced is < the current AdvancePercentageOfDeposits left over.
-        // Example: If _calculateAdvancePercentageOfDeposits returns 20%, then the max advance is 80% of the account’s total available equity.
-        // This way, the more advances are taken, the less users are allowed to take available liquidity for advances.
-        return 100 - _calculateAdvancePercentageOfDeposits();
-    }
-
-    //checks how much of the advance is the total equity
-    function _calculatePercentageOfEquityAdvanced(uint256 _advanceAmount, uint256 _totalEquity)
-        internal
-        pure
-        returns (uint256)
-    {
-        return (_advanceAmount * 100) / _totalEquity;
-    }
-
-    // check how much advacnes are out compared to totoal deposits
-    function _calculateAdvancePercentageOfDeposits() internal view returns (uint256) {
-        return (s_totalVaultAdvances * 100) / s_totalVaultDeposits;
-    }
-
-    //checks how much equity an account has in the vault
-    function _calculateVaultEquity(address _account) internal view returns (uint256) {
-        return (getAccountTotalEquity(_account) * 100) / s_totalVaultDeposits;
-    }
-
+    /// @notice Internal: Repays user’s outstanding advance
+    /// @param _amount Amount sent to repay the advance
     function _repayAdvance(uint256 _amount) internal {
         uint256 advanceBalance = getAccountAdvancedEquity(msg.sender);
 
+        // Full repayment
         if (_amount >= advanceBalance) {
-            s_accountBalances[msg.sender].accountEquity += (_amount - advanceBalance);
+            s_accountBalances[msg.sender].accountEquity += (_amount - advanceBalance); // leftover goes to equity
             s_accountBalances[msg.sender].advancedEquity = 0;
             s_accountBalances[msg.sender].lockedEquity = 0;
             s_vaultBalances[address(this)].totalDeposits += _amount;
             s_vaultBalances[address(this)].totalAdvances -= _amount;
         }
+
+        // Partial repayment
         if (_amount < advanceBalance) {
             s_accountBalances[msg.sender].advancedEquity -= _amount;
             s_vaultBalances[address(this)].totalDeposits += _amount;
             s_vaultBalances[address(this)].totalAdvances -= _amount;
         }
 
-        emit Yield_Advance_Repayment(msg.sender, advanceBalance);
+        emit Advance_Repayment(msg.sender, advanceBalance); // Log advance repayment
     }
 
+    /// @notice Supplies tokens to external yield protocol
     function _depositToPool(uint256 _amount, address _onBehalfOf, uint16 _referralCode) private {
-        IPool(i_activeYieldPool).supply(i_vaultTokenAddress, _amount, _onBehalfOf, _referralCode);
-        emit Deposit_To_Pool(i_vaultTokenAddress, _amount);
+        IPool(i_activePool).supply(i_vaultTokenAddress, _amount, _onBehalfOf, _referralCode);
+        emit Deposit_To_Pool(i_vaultTokenAddress, _amount); // Logs deposit
     }
 
+    /// @notice Withdraws from external yield protocol and sends to target address
     function _withdrawFromPool(uint256 _amount, address _to) private {
-        IPool(i_activeYieldPool).withdraw(i_vaultTokenAddress, _amount, _to);
-        emit Withdraw_From_Pool(i_vaultTokenAddress, _amount, _to);
+        IPool(i_activePool).withdraw(i_vaultTokenAddress, _amount, _to);
+        emit Withdraw_From_Pool(i_vaultTokenAddress, _amount, _to); // Logs withdraw
     }
 
-    function getAccountTotalEquity(address _account) public view returns (uint256) {
-        return s_accountBalances[_account].accountEquity;
+    /// @notice Returns vault’s current advance fee, capped at 25%
+    function _getVaultAdvanceFee() internal view returns (uint256) {
+        if (_getAdvancePercentageOfDeposits() > 25) {
+            return 25;
+        } else {
+            return _getAdvancePercentageOfDeposits();
+        }
     }
 
-    function getAccountAvailableEquity(address _account) public view returns (uint256) {
-        // acounts only earn on / can withdraw available equity.
-        return s_accountBalances[_account].accountEquity - s_accountBalances[_account].lockedEquity;
+    /// @notice Calculates the fee for a specific advance
+    function _getFeeForAdvance(address _account, uint256 _equity, uint256 _advanceToEquityRatio)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 baseFee = (getAccountAdvancedEquity(_account) * _getVaultAdvanceFee()) / 100;
+        uint256 scaledFee = (baseFee * _getAdvanceToEquityRatio(_advanceToEquityRatio, _equity)) / 100;
+        return scaledFee;
     }
 
-    function getAccountAdvancedEquity(address _account) public view returns (uint256) {
-        return s_accountBalances[_account].advancedEquity;
+    /// @notice Gets the maximum advance percentage a user is allowed
+    function _getAdvancePercentageMax() internal view returns (uint256) {
+        return 100 - _getAdvancePercentageOfDeposits();
     }
 
-    function getAccountLockedEquity(address _account) public view returns (uint256) {
-        return s_accountBalances[_account].lockedEquity;
+    /// @notice Calculates advance/equity ratio in percent
+    function _getAdvanceToEquityRatio(uint256 _amount, uint256 _equity) internal pure returns (uint256) {
+        return (_amount * 100) / _equity;
     }
 
-    function _isAddressPermitted(address _account, address _permittedAddress) public view returns (bool) {
-        return s_accountPermittedAddresses[_account][_permittedAddress];
+    /// @notice Gets what % of the vault's total deposits are currently advanced
+    function _getAdvancePercentageOfDeposits() internal view returns (uint256) {
+        return (s_totalVaultAdvances * 100) / s_totalVaultDeposits;
     }
 
+    /// @notice Returns the percentage of the vault owned by a user
+    function _getVaultEquity(address _account) internal view returns (uint256) {
+        return (getAccountTotalEquity(_account) * 100) / s_totalVaultDeposits;
+    }
+
+    /// @notice Checks if there is room for more advances (advances < deposits)
     function _isTotalAdvancesLessThanTotalDeposits() internal view returns (bool) {
         bool isLessThan;
         if (s_totalVaultAdvances < s_totalVaultDeposits) {
@@ -237,34 +258,23 @@ contract SayvVault {
         return isLessThan;
     }
 
-    // permitted addresses need their own withdraw system.*************************************************
-    // function addPermittedAddress(address _account, address _newPermittedAddress) external {
-    //     if (msg.sender != _account) {
-    //         revert NOT_ACCOUNT_OWNER();
-    //     }
-    //     if (_newPermittedAddress == address(0)) {
-    //         revert INVALID_ADDRESS();
-    //     }
-    //     if (_isAddressPermitted(_account, _newPermittedAddress)) {
-    //         revert ADDRESS_ALREADY_PERMITTED();
-    //     }
+    /// @notice Returns total equity of a user
+    function getAccountTotalEquity(address _account) public view returns (uint256) {
+        return s_accountBalances[_account].accountEquity;
+    }
 
-    //     s_accountPermittedAddresses[_account][_newPermittedAddress] = true;
-    //     emit Address_Permitted(_account, _newPermittedAddress);
-    // }
+    /// @notice Returns how much equity a user can withdraw (not locked)
+    function getAccountAvailableEquity(address _account) public view returns (uint256) {
+        return s_accountBalances[_account].accountEquity - s_accountBalances[_account].lockedEquity;
+    }
 
-    // function removePermittedAddress(address _account, address _permittedAddress) external {
-    //     if (msg.sender != _account) {
-    //         revert NOT_ACCOUNT_OWNER();
-    //     }
-    //     if (_permittedAddress == address(0)) {
-    //         revert INVALID_ADDRESS();
-    //     }
-    //     if (!_isAddressPermitted(_account, _permittedAddress)) {
-    //         revert ADDRESS_NOT_PERMITTED();
-    //     }
+    /// @notice Returns user’s outstanding advance balance
+    function getAccountAdvancedEquity(address _account) public view returns (uint256) {
+        return s_accountBalances[_account].advancedEquity;
+    }
 
-    //     s_accountPermittedAddresses[_account][_permittedAddress] = false;
-    //     emit Address_Removed_From_Permitted_Addresses(_account, _permittedAddress);
-    // }
+    /// @notice Returns amount of equity locked due to an advance
+    function getAccountLockedEquity(address _account) public view returns (uint256) {
+        return s_accountBalances[_account].lockedEquity;
+    }
 }
