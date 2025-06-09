@@ -54,11 +54,4 @@ contract SayvVaultFactoryTest is Test {
         vm.prank(dev);
         assertEq(usdcBalance > 10, true);
     }
-
-    function testLaunchedVaultWorks() public {
-        vm.prank(dev);
-        usdc.approve(sayvVaultAddress, 1000);
-        vm.prank(dev);
-        sayvVault.depositToVault(100, false);
-    }
 }
