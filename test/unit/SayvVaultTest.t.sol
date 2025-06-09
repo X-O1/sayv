@@ -41,7 +41,7 @@ contract SayvVaultTest is Test {
         }
     }
 
-    function test() public {}
+    function tests() public {}
 
     function testDepositWithoutRepayment() public {
         _skipIfNotForked();
