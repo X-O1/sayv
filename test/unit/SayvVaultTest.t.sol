@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {SayvVault} from "../../src/SayvVault.sol";
-import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 
 contract SayvVaultTest is Test {
@@ -14,7 +13,7 @@ contract SayvVaultTest is Test {
     uint256 tokenDecimals = 6;
     address addressProvider = 0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e;
     address poolAddress = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
-    address yieldBarringToken = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
+    address aUSDCAddress = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
 
     function setUp() external {
         sayvVault = new SayvVault(usdcAddress, tokenDecimals, addressProvider);
@@ -41,12 +40,12 @@ contract SayvVaultTest is Test {
         IERC20(usdcAddress).approve(poolAddress, 10e6);
         vm.prank(dev);
         sayvVault.depositToVault(10e6, false);
-        console.logUint((IERC20(yieldBarringToken).balanceOf(sayvVaultAddress)));
+        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
     }
 
-    // function testWithdrawWithoutRepayment() public depositWithoutRepayment {
-    //     vm.prank(dev);
-    //     sayvVault.withdrawFromVault(10e6, false);
-    //     console.logUint((IERC20(yieldBarringToken).balanceOf(sayvVaultAddress)));
-    // }
+    function testWithdrawWithoutRepayment() public depositWithoutRepayment {
+        vm.prank(dev);
+        sayvVault.withdrawFromVault(9e6, false);
+        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+    }
 }
