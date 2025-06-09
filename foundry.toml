@@ -6,7 +6,7 @@ remappings = [
   "@chainlink/=lib/chainlink-brownie-contracts/",
   "@openzeppelin/=lib/openzeppelin-contracts/contracts/token/",
   "forge-std/=lib/forge-std/src/",
-  "@aave-v3-core/=lib/aave-v3-core/contracts/interfaces/",
+  "@aave-v3-core/=lib/aave-v3-core/contracts/",
   "solmate/=lib/solmate/src/"
 ]
 
