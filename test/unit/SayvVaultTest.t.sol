@@ -16,6 +16,7 @@ contract SayvVaultTest is Test {
     address aUSDCAddress = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
 
     function setUp() external {
+        _skipIfNotForked();
         sayvVault = new SayvVault(usdcAddress, tokenDecimals, addressProvider);
         sayvVaultAddress = sayvVault.getVaultAddress();
 
