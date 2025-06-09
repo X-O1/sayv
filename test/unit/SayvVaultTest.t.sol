@@ -25,35 +25,35 @@ contract SayvVaultTest is Test {
         }
     }
 
-    modifier depositWithoutRepayment() {
+    modifier ifMainnet() {
         if (block.chainid == 1) {
-            vm.prank(dev);
-            IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-            vm.prank(sayvVaultAddress);
-            IERC20(usdcAddress).approve(poolAddress, 10e6);
-            vm.prank(dev);
-            sayvVault.depositToVault(10e6, false);
             _;
         }
     }
 
-    function testDepositWithoutRepayment() public {
-        if (block.chainid == 1) {
-            vm.prank(dev);
-            IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-            vm.prank(sayvVaultAddress);
-            IERC20(usdcAddress).approve(poolAddress, 10e6);
-            vm.prank(dev);
-            sayvVault.depositToVault(10e6, false);
-            console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
-        }
+    modifier depositWithoutRepayment() {
+        vm.prank(dev);
+        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
+        vm.prank(sayvVaultAddress);
+        IERC20(usdcAddress).approve(poolAddress, 10e6);
+        vm.prank(dev);
+        sayvVault.depositToVault(10e6, false);
+        _;
     }
 
-    function testWithdrawWithoutRepayment() public depositWithoutRepayment {
-        if (block.chainid == 1) {
-            vm.prank(dev);
-            sayvVault.withdrawFromVault(9e6, false);
-            console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
-        }
+    function testDepositWithoutRepayment() public ifMainnet {
+        vm.prank(dev);
+        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
+        vm.prank(sayvVaultAddress);
+        IERC20(usdcAddress).approve(poolAddress, 10e6);
+        vm.prank(dev);
+        sayvVault.depositToVault(10e6, false);
+        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+    }
+
+    function testWithdrawWithoutRepayment() public ifMainnet depositWithoutRepayment {
+        vm.prank(dev);
+        sayvVault.withdrawFromVault(9e6, false);
+        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
     }
 }
