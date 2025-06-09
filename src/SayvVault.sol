@@ -127,7 +127,7 @@ contract SayvVault {
         }
 
         // Withdraw funds from the external pool and send to user
-        _withdrawFromPool(_amount, msg.sender);
+        _withdrawFromPool(_amount, address(this));
 
         emit Withdraw_From_Vault(address(i_vaultToken), _amount, msg.sender); // Log withdrawal
     }
