@@ -33,7 +33,18 @@ contract SayvVaultTest is Test {
         _;
     }
 
+    function _skipIfNotForked() internal view {
+        // You can also check chainid != 1 || block.number == 0 for more certainty
+        if (block.chainid != 1) {
+            console.log("Skipping test: not on forked mainnet");
+            return;
+        }
+    }
+
+    function test() public {}
+
     function testDepositWithoutRepayment() public {
+        _skipIfNotForked();
         vm.prank(dev);
         IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
         vm.prank(sayvVaultAddress);
@@ -44,6 +55,7 @@ contract SayvVaultTest is Test {
     }
 
     function testWithdrawWithoutRepayment() public depositWithoutRepayment {
+        _skipIfNotForked();
         vm.prank(dev);
         sayvVault.withdrawFromVault(9e6, false);
         console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
