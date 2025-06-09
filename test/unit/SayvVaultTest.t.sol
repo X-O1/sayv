@@ -16,49 +16,44 @@ contract SayvVaultTest is Test {
     address aUSDCAddress = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
 
     function setUp() external {
-        _skipIfNotForked();
-        sayvVault = new SayvVault(usdcAddress, tokenDecimals, addressProvider);
-        sayvVaultAddress = sayvVault.getVaultAddress();
+        if (block.chainid == 1) {
+            sayvVault = new SayvVault(usdcAddress, tokenDecimals, addressProvider);
+            sayvVaultAddress = sayvVault.getVaultAddress();
 
-        vm.deal(dev, 10 ether);
-        vm.deal(sayvVaultAddress, 10 ether);
-    }
-
-    modifier depositWithoutRepayment() {
-        _skipIfNotForked();
-        vm.prank(dev);
-        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-        vm.prank(sayvVaultAddress);
-        IERC20(usdcAddress).approve(poolAddress, 10e6);
-        vm.prank(dev);
-        sayvVault.depositToVault(10e6, false);
-        _;
-    }
-
-    function _skipIfNotForked() internal view {
-        if (block.chainid != 1) {
-            console.log("Skipping test: not on forked mainnet");
-            return;
+            vm.deal(dev, 10 ether);
+            vm.deal(sayvVaultAddress, 10 ether);
         }
     }
 
-    function tests() public {}
+    modifier depositWithoutRepayment() {
+        if (block.chainid == 1) {
+            vm.prank(dev);
+            IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
+            vm.prank(sayvVaultAddress);
+            IERC20(usdcAddress).approve(poolAddress, 10e6);
+            vm.prank(dev);
+            sayvVault.depositToVault(10e6, false);
+            _;
+        }
+    }
 
     function testDepositWithoutRepayment() public {
-        _skipIfNotForked();
-        vm.prank(dev);
-        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-        vm.prank(sayvVaultAddress);
-        IERC20(usdcAddress).approve(poolAddress, 10e6);
-        vm.prank(dev);
-        sayvVault.depositToVault(10e6, false);
-        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+        if (block.chainid == 1) {
+            vm.prank(dev);
+            IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
+            vm.prank(sayvVaultAddress);
+            IERC20(usdcAddress).approve(poolAddress, 10e6);
+            vm.prank(dev);
+            sayvVault.depositToVault(10e6, false);
+            console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+        }
     }
 
     function testWithdrawWithoutRepayment() public depositWithoutRepayment {
-        _skipIfNotForked();
-        vm.prank(dev);
-        sayvVault.withdrawFromVault(9e6, false);
-        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+        if (block.chainid == 1) {
+            vm.prank(dev);
+            sayvVault.withdrawFromVault(9e6, false);
+            console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+        }
     }
 }
