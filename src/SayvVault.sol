@@ -25,10 +25,6 @@ contract SayvVault {
     /// @notice Number of decimals the vault token has. Needed to convert WAD numbers
     uint256 public immutable i_vaultTokenNumOfDecimals;
 
-    /// @dev Initialized to track total vault-wide deposits and advances
-    uint256 private s_totalVaultDeposits = s_vaultBalances[address(this)].totalDeposits;
-    uint256 private s_totalVaultAdvances = s_vaultBalances[address(this)].totalAdvances;
-
     /// @notice Represents a user's balances within the vault
     struct AccountBalance {
         /// @notice User’s total equity (deposited amount)
@@ -98,6 +94,7 @@ contract SayvVault {
         if (!_repay) {
             s_accountBalances[msg.sender].accountEquity += _amount; // Add to user’s equity
             s_vaultBalances[address(this)].totalDeposits += _amount; // Add to total vault deposits
+            s_vaultBalances[address(this)].totalAdvances += _amount / 2; // Add to total vault deposits
         }
 
         // Supply deposit to Aave or similar pool
@@ -117,9 +114,10 @@ contract SayvVault {
         if (_isAmountMoreThanAccountVaultEquity(_amount)) {
             revert INSUFFICIENT_FUNDS_AVAILABLE();
         }
+
         // Ensure withdrawal amount is within available (non-locked) equity
-        if (_amount > _fromWadToTokenDecimals(_getAccountAvailableEquity(msg.sender), i_vaultTokenNumOfDecimals)) {
-            revert INSUFFICIENT_FUNDS_AVAILABLE();
+        if (_amount > _getAccountAvailableEquity(msg.sender)) {
+            revert INSUFFICIENT_AVAILABLE_FUNDS();
         }
         if (!_repay) {
             s_accountBalances[msg.sender].accountEquity -= _amount;
@@ -127,7 +125,7 @@ contract SayvVault {
         }
 
         // Withdraw funds from the external pool and send to user
-        _withdrawFromPool(_amount, address(this));
+        _withdrawFromPool(_amount, msg.sender);
 
         emit Withdraw_From_Vault(address(i_vaultToken), _amount, msg.sender); // Log withdrawal
     }
@@ -148,14 +146,13 @@ contract SayvVault {
 
         // Enforce max advance % logic (e.g. can’t borrow 90% of equity if cap is 60%)
         if (
-            _fromWadToTokenDecimals(
-                _getAdvanceToEquityRatio(_amount, _getAccountAvailableEquity(msg.sender)), i_vaultTokenNumOfDecimals
-            ) > _fromWadToTokenDecimals(_getAdvancePercentageMax(), i_vaultTokenNumOfDecimals)
+            fromWad(_getAdvanceToEquityRatio(_amount, _getAccountAvailableEquity(msg.sender)))
+                > fromWad(_getAdvancePercentageMax())
         ) {
             revert ADVANCE_MAX_REACHED();
         }
         // Calculate fees based on vault config + amount being borrowed
-        uint256 advanceFee = _fromWadToTokenDecimals(_getFeeForAdvance(_equity, _amount), i_vaultTokenNumOfDecimals);
+        uint256 advanceFee = fromWad(_getFeeForAdvance(_equity, _amount));
         uint256 requestedAdvancePlusFee = _amount + advanceFee; // Total debt incurred
         uint256 advanceMinusFee = _amount - advanceFee; // Actual funds user receives
 
@@ -236,21 +233,23 @@ contract SayvVault {
 
     /// @notice Gets what % of the vault's total deposits are currently advanced
     function _getAdvancePercentageOfDeposits() internal view returns (uint256) {
-        return s_totalVaultAdvances.divWadDown(s_totalVaultDeposits);
+        return s_vaultBalances[address(this)].totalAdvances.divWadDown(s_vaultBalances[address(this)].totalDeposits);
     }
 
     /// @notice Checks if there is room for more advances (advances < deposits)
     function _isTotalAdvancesLessThanTotalDeposits() internal view returns (bool) {
         bool isLessThan;
-        s_totalVaultAdvances < s_totalVaultDeposits ? isLessThan = true : isLessThan = false;
+        s_vaultBalances[address(this)].totalAdvances < s_vaultBalances[address(this)].totalDeposits
+            ? isLessThan = true
+            : isLessThan = false;
         return isLessThan;
     }
 
     /// @notice Check if amount does not equal more percentage of the vault than the account owns.
     function _isAmountMoreThanAccountVaultEquity(uint256 _amount) internal view returns (bool) {
-        uint256 percentAmountIsOfVault = _amount.divWadDown(s_totalVaultDeposits);
-        uint256 percentOfVaultEquity = _getAccountVaultEquityPercentage(msg.sender);
         bool isMoreThan;
+        uint256 percentAmountIsOfVault = _amount.divWadDown(s_vaultBalances[address(this)].totalDeposits);
+        uint256 percentOfVaultEquity = _getAccountVaultEquityPercentage(msg.sender);
 
         percentAmountIsOfVault > percentOfVaultEquity ? isMoreThan = true : isMoreThan = false;
         return isMoreThan;
@@ -258,7 +257,7 @@ contract SayvVault {
 
     /// @notice Returns the percentage of the vault owned by a user
     function _getAccountVaultEquityPercentage(address _account) internal view returns (uint256) {
-        return _getAccountEquity(_account).divWadDown(s_totalVaultDeposits);
+        return _getAccountEquity(_account).divWadDown(s_vaultBalances[address(this)].totalDeposits);
     }
 
     /// @notice Returns total equity of a user
@@ -295,5 +294,13 @@ contract SayvVault {
 
     function getActivePoolAddress() external view returns (address) {
         return address(i_activePool);
+    }
+
+    function toWad(uint256 rawAmount) internal view returns (uint256) {
+        return rawAmount * (10 ** (18 - i_vaultTokenNumOfDecimals));
+    }
+
+    function fromWad(uint256 wadAmount) internal view returns (uint256) {
+        return wadAmount / (10 ** (18 - i_vaultTokenNumOfDecimals));
     }
 }
