@@ -14,6 +14,8 @@ contract SayvVaultTest is Test {
     address addressProvider = 0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e;
     address poolAddress = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
     address aUSDCAddress = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
+    address user = 0x94a10586cd1B325b42459397b8F030a92b9B5c67;
+    address user2 = 0xA38EE4A24886FEE6F696C65A7b26cE5F42f73f68;
 
     function setUp() external {
         if (block.chainid == 1) {
@@ -22,10 +24,17 @@ contract SayvVaultTest is Test {
 
             vm.deal(dev, 10 ether);
             vm.deal(sayvVaultAddress, 10 ether);
+
+            vm.prank(dev);
+            IERC20(usdcAddress).approve(sayvVaultAddress, type(uint256).max);
+            vm.prank(user);
+            IERC20(usdcAddress).approve(sayvVaultAddress, type(uint256).max);
+            vm.prank(user2);
+            IERC20(usdcAddress).approve(sayvVaultAddress, type(uint256).max);
         }
     }
 
-    modifier ifMainnet() {
+    modifier ifEthMainnet() {
         if (block.chainid == 1) {
             _;
         }
@@ -33,27 +42,30 @@ contract SayvVaultTest is Test {
 
     modifier depositWithoutRepayment() {
         vm.prank(dev);
-        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-        vm.prank(sayvVaultAddress);
-        IERC20(usdcAddress).approve(poolAddress, 10e6);
-        vm.prank(dev);
-        sayvVault.depositToVault(10e6, false);
+        sayvVault.depositToVault(1000e6, false);
+        vm.prank(user);
+        sayvVault.depositToVault(1000e6, false);
+        vm.prank(user2);
+        sayvVault.depositToVault(1000e6, false);
         _;
     }
 
-    function testDepositWithoutRepayment() public ifMainnet {
+    function testDepositWithoutRepaymentAndAccounting() public ifEthMainnet {
         vm.prank(dev);
-        IERC20(usdcAddress).approve(sayvVaultAddress, 10e6);
-        vm.prank(sayvVaultAddress);
-        IERC20(usdcAddress).approve(poolAddress, 10e6);
-        vm.prank(dev);
-        sayvVault.depositToVault(10e6, false);
-        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
+        sayvVault.depositToVault(1000e6, false);
+        vm.prank(user);
+        sayvVault.depositToVault(750e6, false);
+        vm.prank(user2);
+        sayvVault.depositToVault(500e6, false);
+
+        assertEq(sayvVault._getAccountEquity(dev), 1000e6);
+        assertEq(sayvVault._getAccountEquity(user), 750e6);
+        assertEq(sayvVault._getAccountEquity(user2), 500e6);
+        assertEq(sayvVault._getVaultTotalDeposits(), 2250e6);
     }
 
-    function testWithdrawWithoutRepayment() public ifMainnet depositWithoutRepayment {
-        vm.prank(dev);
-        sayvVault.withdrawFromVault(9e6, false);
-        console.logUint((IERC20(aUSDCAddress).balanceOf(sayvVaultAddress)));
-    }
+    // function testWithdrawWithoutRepayment() public ifEthMainnet depositWithoutRepayment {
+    //     // test withrawing more % of the pool than i own
+    //     // test withdrawing more than available equity
+    // }
 }
