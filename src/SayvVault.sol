@@ -5,14 +5,10 @@ import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 /// @title SayvVault
 /// @notice Handles user deposits, withdrawals, advances on yield, and interactions with an external yield pool
-/// @dev Integrates an external yield pool like Aave IPool for yield operations using vaultToken as underlying asset
 contract SayvVault {
-    using FixedPointMathLib for uint256;
-
     /// @notice Aave pool contract
     IPool public immutable i_activePool;
     /// @notice Address of the Aave Pool

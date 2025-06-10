@@ -1,3 +1,3 @@
 # SAYV
 
-The savings account you have a say in.
+A modular savings account that issues advances on yield, built for non-blockchain-native users.
