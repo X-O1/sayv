@@ -70,6 +70,8 @@ contract SayvVault {
         i_activePool = IPool(i_addressesProvider.getPool());
         i_owner = msg.sender; // Sets the owner of the contract to the deployer
         i_vaultTokenNumOfDecimals = _numOfTokenDecimals;
+
+        i_vaultToken.approve(address(i_activePool), type(uint256).max);
     }
 
     /// @notice Deposits tokens into the vault and optionally repays user's outstanding advance
@@ -88,15 +90,11 @@ contract SayvVault {
         // If user chose to repay their advance with this deposit
         if (_repay) {
             _repayAdvance(_amount); // Apply deposit to advance repayment
-        }
-
-        // If not repaying, treat it as a deposit
-        if (!_repay) {
+        } else {
+            // If not repaying, treat it as a deposit
             s_accountBalances[msg.sender].accountEquity += _amount; // Add to user’s equity
             s_vaultBalances[address(this)].totalDeposits += _amount; // Add to total vault deposits
-            s_vaultBalances[address(this)].totalAdvances += _amount / 2; // Add to total vault deposits
         }
-
         // Supply deposit to Aave or similar pool
         _depositToPool(_amount, address(this), 0);
 
@@ -125,7 +123,7 @@ contract SayvVault {
         }
 
         // Withdraw funds from the external pool and send to user
-        _withdrawFromPool(_amount, msg.sender);
+        _withdrawFromPool(_amount, address(msg.sender));
 
         emit Withdraw_From_Vault(address(i_vaultToken), _amount, msg.sender); // Log withdrawal
     }
@@ -195,7 +193,7 @@ contract SayvVault {
     }
 
     /// @notice Supplies tokens to external yield protocol
-    function _depositToPool(uint256 _amount, address _onBehalfOf, uint16 _referralCode) internal {
+    function _depositToPool(uint256 _amount, address _onBehalfOf, uint16 _referralCode) private {
         i_activePool.supply(address(i_vaultToken), _amount, _onBehalfOf, _referralCode);
         emit Deposit_To_Pool(address(i_vaultToken), _amount); // Logs deposit
     }
@@ -261,23 +259,31 @@ contract SayvVault {
     }
 
     /// @notice Returns total equity of a user
-    function _getAccountEquity(address _account) internal view returns (uint256) {
+    function _getAccountEquity(address _account) public view returns (uint256) {
         return s_accountBalances[_account].accountEquity;
     }
 
     /// @notice Returns how much equity a user can withdraw (not locked)
-    function _getAccountAvailableEquity(address _account) internal view returns (uint256) {
+    function _getAccountAvailableEquity(address _account) public view returns (uint256) {
         return _getAccountEquity(_account) - _getAccountLockedEquity(_account);
     }
 
     /// @notice Returns user’s outstanding advance balance
-    function _getAccountAdvancedEquity(address _account) internal view returns (uint256) {
+    function _getAccountAdvancedEquity(address _account) public view returns (uint256) {
         return s_accountBalances[_account].advancedEquity;
     }
 
     /// @notice Returns amount of equity locked due to an advance
-    function _getAccountLockedEquity(address _account) internal view returns (uint256) {
+    function _getAccountLockedEquity(address _account) public view returns (uint256) {
         return s_accountBalances[_account].lockedEquity;
+    }
+
+    function _getVaultTotalDeposits() public view returns (uint256) {
+        return s_vaultBalances[address(this)].totalDeposits;
+    }
+
+    function _getVaultTotalAdvances() public view returns (uint256) {
+        return s_vaultBalances[address(this)].totalAdvances;
     }
 
     /// @notice Converts wad numbers to their orginal decimals
