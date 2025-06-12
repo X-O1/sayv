@@ -1,3 +1,3 @@
 # SAYV
 
-A modular savings account that issues advances on yield, built for non-blockchain-native users.
+A Peer-to-Peer Marketplace for Time-Shifted Yield
