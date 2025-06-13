@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import "./SayvErrors.sol";
-import {SayvVault} from "./SayvVault.sol";
+import {YieldAdapter} from "./YieldAdapter.sol";
 
-contract SayvVaultFactory {
+contract YieldAdapterFactory {
     address immutable i_owner;
     address[] public s_allActiveVaults;
 
@@ -23,21 +23,20 @@ contract SayvVaultFactory {
         _;
     }
 
-    function createVault(
-        address _token,
-        uint256 _numOfTokenDecimals,
-        address _addressProvider,
-        address _yieldBarringToken
-    ) external onlyOwner returns (SayvVault) {
+    function createVault(address _token, address _addressProvider, address _yieldBarringToken)
+        external
+        onlyOwner
+        returns (YieldAdapter)
+    {
         if (s_activeVaults[_token]) {
             revert VAULT_ALREADY_EXIST();
         }
         s_activeVaults[_token] = true;
         s_allActiveVaults.push(_token);
 
-        SayvVault sayvVault = new SayvVault(_token, _numOfTokenDecimals, _addressProvider, _yieldBarringToken);
+        YieldAdapter yieldAdapter = new YieldAdapter(_token, _addressProvider, _yieldBarringToken);
         emit Vault_Created(_token, _addressProvider);
-        return sayvVault;
+        return yieldAdapter;
     }
 
     function getOwner() external view returns (address) {
