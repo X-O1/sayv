@@ -1,3 +1,3 @@
 # SAYV
 
-A Peer-to-Peer Marketplace for Time-Shifted Yield
+High yield savings account built for non-blockchain-native users.
