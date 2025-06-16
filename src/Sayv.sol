@@ -6,9 +6,8 @@ import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
-import {YieldLeasing} from "./YieldLeasing.sol";
 
-contract YieldAdapter {
+contract Sayv {
     IPool public immutable i_activePool;
     IPoolAddressesProvider public immutable i_addressesProvider;
     IERC20 public immutable i_vaultToken;
@@ -16,28 +15,22 @@ contract YieldAdapter {
     address public immutable i_vaultTokenAddress;
     address public immutable i_yieldBarringTokenAddress;
     address public immutable i_owner;
-    YieldLeasing public s_yieldLeasing;
-    address public s_yieldLeasingAddress;
-    bool public s_yieldLeasingContractAddressIsSet;
 
     mapping(address account => uint256 amount) public s_yieldShares;
     mapping(address vault => uint256 amount) public s_totalYieldShares;
     mapping(address vault => uint256 amount) public s_totalFeesCollected;
 
-    event Deposit_To_Vault(address indexed account, address indexed token, uint256 indexed amount);
-    event Withdraw_From_Vault(address indexed token, uint256 indexed amount, address indexed to);
     event Deposit_To_Pool(address indexed token, uint256 indexed amount);
     event Withdraw_From_Pool(address indexed token, uint256 indexed amount, address indexed to);
-    event Yield_Leasing_Contract_Address_Set(address indexed yieldLeasingAddress);
 
     constructor(address _token, address _addressProvider, address _yieldBarringToken) {
-        i_vaultToken = IERC20(_token); // Sets the token contract for vault operations
+        i_vaultToken = IERC20(_token);
         i_vaultTokenAddress = _token;
         i_yieldBarringToken = IERC20(_yieldBarringToken);
         i_yieldBarringTokenAddress = _yieldBarringToken;
         i_addressesProvider = IPoolAddressesProvider(_addressProvider);
         i_activePool = IPool(i_addressesProvider.getPool());
-        i_owner = msg.sender; // Sets the owner of the contract to the deployer
+        i_owner = msg.sender;
         i_vaultToken.approve(address(i_activePool), type(uint256).max);
     }
 
@@ -46,25 +39,6 @@ contract YieldAdapter {
             revert NOT_OWNER();
         }
         _;
-    }
-
-    modifier onlyYieldLeasingContract() {
-        if (msg.sender != s_yieldLeasingAddress) {
-            revert NOT_OWNER();
-        }
-        _;
-    }
-
-    function setYieldLeasingContractAddress(address _yieldLeasingAddress) public onlyOwner {
-        if (s_yieldLeasingContractAddressIsSet) {
-            revert YIELD_LEASING_ADDRESS_ALREADY_SET();
-        }
-        s_yieldLeasing = YieldLeasing(_yieldLeasingAddress);
-        s_yieldLeasingAddress = _yieldLeasingAddress;
-        s_yieldLeasingContractAddressIsSet = true;
-        i_yieldBarringToken.approve(address(s_yieldLeasing), type(uint256).max);
-
-        emit Yield_Leasing_Contract_Address_Set(_yieldLeasingAddress);
     }
 
     function depositToVault(uint256 _amount) public {
@@ -108,14 +82,14 @@ contract YieldAdapter {
         emit Withdraw_From_Pool(i_vaultTokenAddress, _amount, msg.sender);
     }
 
-    function _depositToPool(address _token, uint256 _amount, address _onBehalfOf, uint16 _referralCode) external onlyYieldLeasingContract {
+    function _depositToPool(address _token, uint256 _amount, address _onBehalfOf, uint16 _referralCode) external {
         i_activePool.supply(_token, _amount, _onBehalfOf, _referralCode);
-        emit Deposit_To_Pool(_token, _amount); // Logs deposit
+        emit Deposit_To_Pool(_token, _amount);
     }
 
-    function _withdrawFromPool(address _token, uint256 _amount, address _to) external onlyYieldLeasingContract {
+    function _withdrawFromPool(address _token, uint256 _amount, address _to) external {
         i_activePool.withdraw(_token, _amount, _to);
-        emit Withdraw_From_Pool(_token, _amount, _to); // Logs withdraw
+        emit Withdraw_From_Pool(_token, _amount, _to);
     }
 
     function _getConvenienceFee(uint256 _amount) internal pure returns (uint256) {
@@ -149,7 +123,7 @@ contract YieldAdapter {
     ///@notice use these shares to track users balance throughout the protocol. tracks yield gain.
     function _claimYieldShares(uint256 _usdcAmount) private view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex();
-        if (currentLiquidityIndex == 0) {
+        if (currentLiquidityIndex < 1) {
             revert INVALID_LIQUIDITY_INDEX();
         }
         uint256 sharesToMint = ((_usdcAmount * 1e27) / currentLiquidityIndex);
@@ -160,23 +134,32 @@ contract YieldAdapter {
     ///@notice use these shares to track users balance throughout the protocol. tracks yield gain.
     function _redeemYieldShares(uint256 _usdcAmount) private view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex();
-        if (currentLiquidityIndex == 0) {
+        if (currentLiquidityIndex < 1) {
             revert INVALID_LIQUIDITY_INDEX();
         }
         uint256 sharesToBurn = ((_usdcAmount * 1e27) / currentLiquidityIndex);
         return sharesToBurn;
     }
 
-    function getAmountOfShares(address _account) public view returns (uint256) {
+    function getAccountNumOfShares(address _account) public view returns (uint256) {
         return (s_yieldShares[_account]);
     }
 
     function getAccountShareValue(address _account) public view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex();
-        if (currentLiquidityIndex == 0) {
+        if (currentLiquidityIndex < 1) {
             revert INVALID_LIQUIDITY_INDEX();
         }
         uint256 shareValue = (s_yieldShares[_account] * currentLiquidityIndex + 1e27 - 1) / 1e27;
+        return shareValue;
+    }
+
+    function getShareValue(uint256 _shares) public view returns (uint256) {
+        uint256 currentLiquidityIndex = _getCurrentLiquidityIndex();
+        if (currentLiquidityIndex < 1) {
+            revert INVALID_LIQUIDITY_INDEX();
+        }
+        uint256 shareValue = (_shares * currentLiquidityIndex + 1e27 - 1) / 1e27;
         return shareValue;
     }
 }

@@ -2,17 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {YieldAdapter} from "../../src/YieldAdapter.sol";
+import {Sayv} from "../../src/Sayv.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
-import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 
 /**
- * @title Test for YieldAdapter.sol on the BASE Mainnet
+ * @title Test for Sayv.sol on the BASE Mainnet
  * @notice All addresses are for Base Mainnet
  */
-contract YieldAdaptertTest is Test {
-    YieldAdapter yieldAdapter;
-    address yieldAdapterAddress;
+contract SayvTest is Test {
+    Sayv sayv;
+    address sayvAddress;
     address dev = 0x7Cc00Dc8B6c0aC2200b989367E30D91B7C7F5F43;
     address fakeUser = 0x7e6Af92Df2aEcD6113325c0b58F821ab1dCe37F6;
     address usdcAddress = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
@@ -25,26 +24,26 @@ contract YieldAdaptertTest is Test {
 
     function setUp() external {
         if (block.chainid == baseMainnetChainID) {
-            yieldAdapter = new YieldAdapter(usdcAddress, addressProvider, aUSDC);
-            yieldAdapterAddress = yieldAdapter.getVaultAddress();
+            sayv = new Sayv(usdcAddress, addressProvider, aUSDC);
+            sayvAddress = sayv.getVaultAddress();
 
             vm.deal(dev, 10 ether);
-            vm.deal(yieldAdapterAddress, 10 ether);
+            vm.deal(sayvAddress, 10 ether);
 
             vm.prank(dev);
-            IERC20(usdcAddress).approve(yieldAdapterAddress, type(uint256).max);
+            IERC20(usdcAddress).approve(sayvAddress, type(uint256).max);
 
             vm.prank(dev);
-            IERC20(aUSDC).approve(yieldAdapterAddress, type(uint256).max);
+            IERC20(aUSDC).approve(sayvAddress, type(uint256).max);
             vm.prank(dev);
             IERC20(usdcAddress).transfer(fakeUser, 100);
 
             vm.prank(fakeUser);
-            IERC20(aUSDC).approve(yieldAdapterAddress, type(uint256).max);
+            IERC20(aUSDC).approve(sayvAddress, type(uint256).max);
             vm.prank(fakeUser);
-            IERC20(usdcAddress).approve(yieldAdapterAddress, type(uint256).max);
+            IERC20(usdcAddress).approve(sayvAddress, type(uint256).max);
 
-            vm.prank(yieldAdapterAddress);
+            vm.prank(sayvAddress);
             IERC20(aUSDC).approve(poolAddress, type(uint256).max);
         }
     }
@@ -57,36 +56,30 @@ contract YieldAdaptertTest is Test {
 
     modifier deposit() {
         vm.prank(fakeUser);
-        yieldAdapter.depositToVault(100);
+        sayv.depositToVault(100);
         _;
     }
 
     function testDepositAndAccounting() public ifBaseMainnet {
         vm.prank(fakeUser);
-        yieldAdapter.depositToVault(100);
+        sayv.depositToVault(100);
         assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 0);
-        assertEq(IERC20(aUSDC).balanceOf(yieldAdapterAddress), 100);
-        assertEq(yieldAdapter.getAccountShareValue(fakeUser), 100);
+        assertEq(IERC20(aUSDC).balanceOf(sayvAddress), 100);
+        assertEq(sayv.getAccountShareValue(fakeUser), 100);
     }
 
     function testWithdrawAndAccounting() public ifBaseMainnet {
         vm.prank(fakeUser);
-        yieldAdapter.depositToVault(100);
+        sayv.depositToVault(100);
 
         vm.warp(block.timestamp + 356 days);
 
         vm.prank(dev);
-        yieldAdapter.depositToVault(100);
+        sayv.depositToVault(100);
 
         vm.prank(fakeUser);
-        yieldAdapter.withdrawFromVault(100);
-        console.logUint(yieldAdapter.getAccountShareValue(fakeUser));
-
-        // assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 100);
-        // assertEq(yieldAdapter.getAccountShareValue(fakeUser), 0);
-        // assertEq(IERC20(aUSDC).balanceOf(yieldAdapterAddress), 0);
-        // assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 100);
-
-        // IPool(poolAddress).supply(usdcAddress, 1, msg.sender, 0);
+        sayv.withdrawFromVault(100);
+        console.logUint(sayv.getAccountShareValue(fakeUser));
+        assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 100);
     }
 }
