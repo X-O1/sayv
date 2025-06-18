@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {Sayv} from "../../src/Sayv.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
+import {YieldWield} from "@yieldwield/YieldWield.sol";
 
 /**
  * @title Test for Sayv.sol on the BASE Mainnet
@@ -12,6 +13,8 @@ import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 contract SayvTest is Test {
     Sayv sayv;
     address sayvAddress;
+    YieldWield yieldWield;
+    address yieldWieldAddress;
     address dev = 0x7Cc00Dc8B6c0aC2200b989367E30D91B7C7F5F43;
     address fakeUser = 0x7e6Af92Df2aEcD6113325c0b58F821ab1dCe37F6;
     address usdcAddress = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
@@ -24,7 +27,10 @@ contract SayvTest is Test {
 
     function setUp() external {
         if (block.chainid == baseMainnetChainID) {
-            sayv = new Sayv(usdcAddress, addressProvider, aUSDC);
+            yieldWield = new YieldWield(addressProvider);
+            yieldWieldAddress = yieldWield.getYieldWieldContractAddress();
+
+            sayv = new Sayv(usdcAddress, aUSDC, addressProvider, yieldWieldAddress);
             sayvAddress = sayv.getVaultAddress();
 
             vm.deal(dev, 10 ether);

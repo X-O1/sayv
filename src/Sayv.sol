@@ -6,9 +6,11 @@ import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
+import {IYieldWield} from "@yieldwield/interfaces/IYieldWield.sol";
 
 contract Sayv {
-    IPool public immutable i_activePool;
+    IYieldWield public immutable i_yieldWield;
+    IPool public immutable i_aavePool;
     IPoolAddressesProvider public immutable i_addressesProvider;
     IERC20 public immutable i_vaultToken;
     IERC20 public immutable i_yieldBarringToken;
@@ -17,21 +19,27 @@ contract Sayv {
     address public immutable i_owner;
 
     mapping(address account => uint256 amount) public s_yieldShares;
-    mapping(address vault => uint256 amount) public s_totalYieldShares;
-    mapping(address vault => uint256 amount) public s_totalFeesCollected;
+    uint256 private s_totalYieldShares;
+    uint256 private s_totalRevenueShares;
 
     event Deposit_To_Pool(address indexed token, uint256 indexed amount);
     event Withdraw_From_Pool(address indexed token, uint256 indexed amount, address indexed to);
+    event Advance_Taken(address indexed account, address indexed token, uint256 collateral, uint256 advanceMinusFee);
+    event Withdraw_Collateral(address indexed account, address indexed token, uint256 collateralWithdrawn);
+    event Advance_Repayment_Deposit(
+        address indexed account, address indexed token, uint256 repaidAmount, uint256 currentDebt
+    );
 
-    constructor(address _token, address _addressProvider, address _yieldBarringToken) {
+    constructor(address _token, address _yieldBarringToken, address _addressProvider, address _yieldWieldAddress) {
         i_vaultToken = IERC20(_token);
         i_vaultTokenAddress = _token;
         i_yieldBarringToken = IERC20(_yieldBarringToken);
         i_yieldBarringTokenAddress = _yieldBarringToken;
         i_addressesProvider = IPoolAddressesProvider(_addressProvider);
-        i_activePool = IPool(i_addressesProvider.getPool());
+        i_aavePool = IPool(i_addressesProvider.getPool());
         i_owner = msg.sender;
-        i_vaultToken.approve(address(i_activePool), type(uint256).max);
+        i_yieldWield = IYieldWield(_yieldWieldAddress);
+        i_vaultToken.approve(address(i_aavePool), type(uint256).max);
     }
 
     modifier onlyOwner() {
@@ -54,12 +62,12 @@ contract Sayv {
             revert DEPOSIT_FAILED();
         }
 
-        i_activePool.supply(i_vaultTokenAddress, _amount, address(this), 0);
+        i_aavePool.supply(i_vaultTokenAddress, _amount, address(this), 0);
 
         uint256 sharesClaimed = _claimYieldShares(_amount);
 
         s_yieldShares[msg.sender] += sharesClaimed;
-        s_totalYieldShares[address(this)] += sharesClaimed;
+        s_totalYieldShares += sharesClaimed;
 
         emit Deposit_To_Pool(i_vaultTokenAddress, _amount);
     }
@@ -71,25 +79,64 @@ contract Sayv {
 
         uint256 sharesRedeemed = _redeemYieldShares(_amount);
 
-        if (s_yieldShares[msg.sender] < sharesRedeemed || s_totalYieldShares[address(this)] < sharesRedeemed) {
+        if (s_yieldShares[msg.sender] < sharesRedeemed || s_totalYieldShares < sharesRedeemed) {
             revert UNDERFLOW();
         }
         s_yieldShares[msg.sender] -= sharesRedeemed;
-        s_totalYieldShares[address(this)] -= sharesRedeemed;
+        s_totalYieldShares -= sharesRedeemed;
 
-        i_activePool.withdraw(i_vaultTokenAddress, _amount, msg.sender);
+        i_aavePool.withdraw(i_vaultTokenAddress, _amount, msg.sender);
 
         emit Withdraw_From_Pool(i_vaultTokenAddress, _amount, msg.sender);
     }
 
-    function _depositToPool(address _token, uint256 _amount, address _onBehalfOf, uint16 _referralCode) external {
-        i_activePool.supply(_token, _amount, _onBehalfOf, _referralCode);
-        emit Deposit_To_Pool(_token, _amount);
+    function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount) external {
+        if (i_yieldWield.getTotalDebt(_token) >= getShareValue(s_totalYieldShares)) {
+            revert ADVANCES_AT_MAX_CAPACITY();
+        }
+        address account = msg.sender;
+        if (_collateral > getAccountShareValue(account)) {
+            revert INSUFFICIENT_AVAILABLE_FUNDS();
+        }
+
+        uint256 sharesOfferedForCollateral = _redeemYieldShares(_collateral);
+
+        s_yieldShares[account] -= sharesOfferedForCollateral;
+        s_totalYieldShares -= sharesOfferedForCollateral;
+
+        uint256 advanceMinusFee = i_yieldWield.getAdvance(account, _token, _collateral, _advanceAmount);
+
+        uint256 newRevenueShares = i_yieldWield.claimRevenue(account);
+        s_totalRevenueShares += newRevenueShares;
+
+        i_aavePool.withdraw(_token, advanceMinusFee, account);
+
+        emit Advance_Taken(account, _token, _collateral, advanceMinusFee);
     }
 
-    function _withdrawFromPool(address _token, uint256 _amount, address _to) external {
-        i_activePool.withdraw(_token, _amount, _to);
-        emit Withdraw_From_Pool(_token, _amount, _to);
+    function repayYieldAdvanceWithDeposit(address _token, uint256 _amount) external {
+        address account = msg.sender;
+        uint256 accountCurrentDebt = i_yieldWield.getAndupdateAccountDebtFromYield(account, _token);
+        if (accountCurrentDebt == 0) {
+            revert ACCOUNT_HAS_NO_DEBT();
+        }
+        if (_amount > accountCurrentDebt) {
+            revert AMOUNT_IS_GREATER_THAN_TOTAL_DEBT();
+        }
+        uint256 newCurrentDebt = i_yieldWield.repayAdvanceWithDeposit(account, _token, _amount);
+
+        emit Advance_Repayment_Deposit(account, _token, _amount, newCurrentDebt);
+    }
+
+    function withdrawYieldAdvanceCollateral(address _token) external {
+        address account = msg.sender;
+        uint256 collateralWithdrawn = i_yieldWield.withdrawCollateral(account, _token);
+        uint256 yieldSharesAddedToAccount = _claimYieldShares(collateralWithdrawn);
+
+        s_yieldShares[account] += yieldSharesAddedToAccount;
+        s_totalYieldShares += yieldSharesAddedToAccount;
+
+        emit Withdraw_Collateral(account, _token, collateralWithdrawn);
     }
 
     function _getConvenienceFee(uint256 _amount) internal pure returns (uint256) {
@@ -110,12 +157,12 @@ contract Sayv {
     }
 
     function getActivePoolAddress() external view returns (address) {
-        return address(i_activePool);
+        return address(i_aavePool);
     }
 
     /// @notice Get the current liquidity index for USDC in Aave
     function _getCurrentLiquidityIndex() internal view returns (uint256) {
-        DataTypes.ReserveData memory reserve = i_activePool.getReserveData(i_vaultTokenAddress);
+        DataTypes.ReserveData memory reserve = i_aavePool.getReserveData(i_vaultTokenAddress);
         return uint256(reserve.liquidityIndex) / 1e21; // WAD (1e27)
     }
 
@@ -161,5 +208,9 @@ contract Sayv {
         }
         uint256 shareValue = (_shares * currentLiquidityIndex + 1e27 - 1) / 1e27;
         return shareValue;
+    }
+
+    function getValueOfTotalRevenueShares() internal view returns (uint256) {
+        return getShareValue(s_totalRevenueShares);
     }
 }

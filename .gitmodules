@@ -13,3 +13,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "lib/yieldwield"]
+	path = lib/yieldwield
+	url = https://github.com/X-O1/yieldwield
