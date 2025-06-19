@@ -1,6 +1,6 @@
 # 💰 SAYV v1
 
-SAYV is a savings account that earns yield on stablecoins via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.
+SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.
 
 ---
 
