@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {Sayv} from "../../src/Sayv.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 import {YieldWield} from "@yieldwield/YieldWield.sol";
+import {TokenRegistry} from "@token-registry/TokenRegistry.sol";
 
 /**
  * @title Test for Sayv.sol on the BASE Mainnet
@@ -15,6 +16,8 @@ contract SayvTest is Test {
     address sayvAddress;
     YieldWield yieldWield;
     address yieldWieldAddress;
+    TokenRegistry tokenRegistry;
+    address tokenRegistryAddress;
     address dev = 0x7Cc00Dc8B6c0aC2200b989367E30D91B7C7F5F43;
     address fakeUser = 0x7e6Af92Df2aEcD6113325c0b58F821ab1dCe37F6;
     address usdcAddress = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
@@ -30,8 +33,19 @@ contract SayvTest is Test {
             yieldWield = new YieldWield(addressProvider);
             yieldWieldAddress = yieldWield.getYieldWieldContractAddress();
 
-            sayv = new Sayv(usdcAddress, aUSDC, addressProvider, yieldWieldAddress);
+            tokenRegistry = new TokenRegistry();
+            tokenRegistryAddress = tokenRegistry.getTokenRegistryAddress();
+
+            vm.startPrank(dev);
+            sayv = new Sayv(addressProvider, yieldWieldAddress, tokenRegistryAddress);
+            vm.stopPrank();
+
             sayvAddress = sayv.getVaultAddress();
+
+            vm.prank(dev);
+            sayv.managePermittedTokens(usdcAddress, true);
+            vm.prank(dev);
+            sayv.managePermittedTokens(aUSDC, true);
 
             vm.deal(dev, 10 ether);
             vm.deal(sayvAddress, 10 ether);
@@ -62,51 +76,50 @@ contract SayvTest is Test {
 
     modifier deposit() {
         vm.prank(fakeUser);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
         _;
     }
 
     function testDepositAndAccounting() public ifBaseMainnet {
         vm.prank(fakeUser);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
         assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 0);
-        assertEq(IERC20(aUSDC).balanceOf(sayvAddress), 100);
-        assertEq(sayv.getAccountShareValue(fakeUser), 100);
+        assertEq(sayv.getAccountShareValue(usdcAddress, fakeUser), 100);
     }
 
     function testWithdrawAndAccounting() public ifBaseMainnet {
         vm.prank(fakeUser);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
 
         vm.warp(block.timestamp + 356 days);
 
         vm.prank(dev);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
 
         vm.prank(fakeUser);
-        sayv.withdrawFromVault(100);
-        console.logUint(sayv.getAccountShareValue(fakeUser));
+        sayv.withdrawFromVault(usdcAddress, 100);
+        console.logUint(sayv.getAccountShareValue(usdcAddress, fakeUser));
         assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 100);
     }
 
     function testGettingYieldAdvance() public ifBaseMainnet {
         vm.prank(fakeUser);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
         vm.prank(dev);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
 
         vm.prank(fakeUser);
         sayv.getYieldAdvance(usdcAddress, 100, 20);
-        assertEq(sayv.getAccountShareValue(fakeUser), 0);
-        assertEq(sayv.getValueOfTotalRevenueShares(), 6);
+        assertEq(sayv.getAccountShareValue(usdcAddress, fakeUser), 0);
+        assertEq(sayv.getValueOfTotalRevenueShares(usdcAddress), 6);
         assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 14);
     }
 
     function testRepayingYieldAdvanceWithDepositAndWithdrawingCollateral() public ifBaseMainnet {
         vm.prank(fakeUser);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
         vm.prank(dev);
-        sayv.depositToVault(100);
+        sayv.depositToVault(usdcAddress, 100);
 
         vm.prank(fakeUser);
         sayv.getYieldAdvance(usdcAddress, 100, 20);
@@ -123,6 +136,12 @@ contract SayvTest is Test {
 
         vm.prank(fakeUser);
         sayv.withdrawYieldAdvanceCollateral(usdcAddress);
-        assertEq(sayv.getAccountShareValue(fakeUser), 100);
+        assertEq(sayv.getAccountShareValue(usdcAddress, fakeUser), 100);
+    }
+
+    function testDepositWithTokenNotPermitted() public ifBaseMainnet {
+        vm.prank(fakeUser);
+        vm.expectRevert();
+        sayv.depositToVault(0xa9D6855Ab011b8607E21b21a097692D55A15F985, 100);
     }
 }
