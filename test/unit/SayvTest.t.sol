@@ -88,4 +88,41 @@ contract SayvTest is Test {
         console.logUint(sayv.getAccountShareValue(fakeUser));
         assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 100);
     }
+
+    function testGettingYieldAdvance() public ifBaseMainnet {
+        vm.prank(fakeUser);
+        sayv.depositToVault(100);
+        vm.prank(dev);
+        sayv.depositToVault(100);
+
+        vm.prank(fakeUser);
+        sayv.getYieldAdvance(usdcAddress, 100, 20);
+        assertEq(sayv.getAccountShareValue(fakeUser), 0);
+        assertEq(sayv.getValueOfTotalRevenueShares(), 6);
+        assertEq(IERC20(usdcAddress).balanceOf(fakeUser), 14);
+    }
+
+    function testRepayingYieldAdvanceWithDepositAndWithdrawingCollateral() public ifBaseMainnet {
+        vm.prank(fakeUser);
+        sayv.depositToVault(100);
+        vm.prank(dev);
+        sayv.depositToVault(100);
+
+        vm.prank(fakeUser);
+        sayv.getYieldAdvance(usdcAddress, 100, 20);
+
+        vm.prank(fakeUser);
+        vm.expectRevert();
+        sayv.withdrawYieldAdvanceCollateral(usdcAddress);
+
+        vm.prank(dev);
+        IERC20(usdcAddress).transfer(fakeUser, 20);
+
+        vm.prank(fakeUser);
+        sayv.repayYieldAdvanceWithDeposit(usdcAddress, 20);
+
+        vm.prank(fakeUser);
+        sayv.withdrawYieldAdvanceCollateral(usdcAddress);
+        assertEq(sayv.getAccountShareValue(fakeUser), 100);
+    }
 }

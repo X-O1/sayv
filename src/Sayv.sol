@@ -106,7 +106,7 @@ contract Sayv {
 
         uint256 advanceMinusFee = i_yieldWield.getAdvance(account, _token, _collateral, _advanceAmount);
 
-        uint256 newRevenueShares = i_yieldWield.claimRevenue(account);
+        uint256 newRevenueShares = i_yieldWield.claimRevenue(_token);
         s_totalRevenueShares += newRevenueShares;
 
         i_aavePool.withdraw(_token, advanceMinusFee, account);
@@ -123,7 +123,14 @@ contract Sayv {
         if (_amount > accountCurrentDebt) {
             revert AMOUNT_IS_GREATER_THAN_TOTAL_DEBT();
         }
+
         uint256 newCurrentDebt = i_yieldWield.repayAdvanceWithDeposit(account, _token, _amount);
+
+        if (!i_vaultToken.transferFrom(msg.sender, address(this), _amount)) {
+            revert DEPOSIT_FAILED();
+        }
+
+        i_aavePool.supply(i_vaultTokenAddress, _amount, address(this), 0);
 
         emit Advance_Repayment_Deposit(account, _token, _amount, newCurrentDebt);
     }
@@ -212,7 +219,7 @@ contract Sayv {
         return shareValue;
     }
 
-    function getValueOfTotalRevenueShares() internal view returns (uint256) {
+    function getValueOfTotalRevenueShares() external view returns (uint256) {
         return getShareValue(s_totalRevenueShares);
     }
 }
