@@ -139,6 +139,8 @@ contract Sayv {
         emit Withdraw_Collateral(account, _token, collateralWithdrawn);
     }
 
+    // MAKE AUTO WITHDRAW COLLATERAL WHEN DEBT HITS 0 somehow
+
     function _getConvenienceFee(uint256 _amount) internal pure returns (uint256) {
         uint256 convenienceFee = _getPercentageAmount(_amount, 10);
         return convenienceFee;
