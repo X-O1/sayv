@@ -7,7 +7,7 @@ import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
 import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
 import {IYieldWield} from "@yieldwield/interfaces/IYieldWield.sol";
-import {ITokenRegistry} from "@token-registry/interfaces/ITokenRegistry.sol";
+import {ITokenRegistry} from "@token-registry/Interfaces/ITokenRegistry.sol";
 
 contract Sayv {
     IYieldWield public immutable i_yieldWield;
@@ -25,9 +25,7 @@ contract Sayv {
     event Withdraw_From_Pool(address indexed token, uint256 indexed amount, address indexed to);
     event Advance_Taken(address indexed account, address indexed token, uint256 collateral, uint256 advanceMinusFee);
     event Withdraw_Collateral(address indexed account, address indexed token, uint256 collateralWithdrawn);
-    event Advance_Repayment_Deposit(
-        address indexed account, address indexed token, uint256 repaidAmount, uint256 currentDebt
-    );
+    event Advance_Repayment_Deposit(address indexed account, address indexed token, uint256 repaidAmount, uint256 currentDebt);
 
     constructor(address _addressProviderAddress, address _yieldWieldAddress, address _tokenRegistryAddress) {
         i_addressesProvider = IPoolAddressesProvider(_addressProviderAddress);
@@ -45,9 +43,7 @@ contract Sayv {
     }
 
     function managePermittedTokens(address _tokenAddress, bool _isApproved) external onlyOwner {
-        _isApproved
-            ? i_tokenRegistry.addTokenToRegistry(_tokenAddress)
-            : i_tokenRegistry.removeTokenFromRegistry(_tokenAddress);
+        _isApproved ? i_tokenRegistry.addTokenToRegistry(_tokenAddress) : i_tokenRegistry.removeTokenFromRegistry(_tokenAddress);
 
         if (_isApproved) {
             IERC20(_tokenAddress).approve(address(i_aavePool), type(uint256).max);

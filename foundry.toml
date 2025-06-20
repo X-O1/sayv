@@ -8,7 +8,7 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "@aave-v3-core/=lib/aave-v3-core/contracts/",
   "@yieldwield/=lib/yieldwield/src",
-  '@token-registry/=lib/token-registry/src'
+  '@token-registry/=lib/token-registry/src',
 ]
 
 
