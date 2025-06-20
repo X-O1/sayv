@@ -12,7 +12,7 @@
 	url = https://github.com/aave/aave-v3-core
 [submodule "lib/token-registry"]
 	path = lib/token-registry
-	url = https://github.com/smartcontractengineer/token-registry
+	url = https://github.com/X-O1/token-registry
 [submodule "lib/yieldwield"]
 	path = lib/yieldwield
-	url = https://github.com/smartcontractengineer/yieldwield
+	url = https://github.com/X-O1/yieldwield
