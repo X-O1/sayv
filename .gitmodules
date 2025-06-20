@@ -13,3 +13,6 @@
 [submodule "lib/token-registry"]
 	path = lib/token-registry
 	url = https://github.com/smartcontractengineer/token-registry
+[submodule "lib/yieldwield"]
+	path = lib/yieldwield
+	url = https://github.com/smartcontractengineer/yieldwield
