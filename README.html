@@ -2,7 +2,7 @@
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>&#x1f4b0; SAYV v1</title>
+            <title>SAYV v1</title>
             <style>
 /* From extension vscode.github */
 /*---------------------------------------------------------------------------------------------
@@ -815,10 +815,10 @@ hue-6-2: #e6c07b
         
         </head>
         <body class="vscode-body vscode-light">
-            <h1 id="-sayv-v1">💰 SAYV v1</h1>
+            <h1 id="sayv-v1">SAYV v1</h1>
 <p>SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.</p>
 <hr>
-<h2 id="-what-it-does">✨ What It Does</h2>
+<h2 id="what-it-does">What It Does</h2>
 <p>SAYV handles the vault logic for:</p>
 <ul>
 <li>Accepting stablecoin deposits from users</li>
@@ -829,7 +829,7 @@ hue-6-2: #e6c07b
 <li>Claiming protocol revenue automatically from YieldWield fees</li>
 </ul>
 <hr>
-<h2 id="️-installation-forge">🛠️ Installation (Forge)</h2>
+<h2 id="installation-forge">Installation (Forge)</h2>
 <p>To install SAYV into your Foundry project:</p>
 <pre><code class="language-bash">forge install X-O1/sayv
 </code></pre>
@@ -846,7 +846,7 @@ hue-6-2: #e6c07b
 ]
 </code></pre>
 <hr>
-<h2 id="-deploying-sayv">📡 Deploying SAYV</h2>
+<h2 id="deploying-sayv">Deploying SAYV</h2>
 <pre><code class="language-solidity">new Sayv(
   addressProviderAddress,      // Aave PoolAddressesProvider
   yieldWieldAddress,           // YieldWield contract
@@ -855,7 +855,7 @@ hue-6-2: #e6c07b
 </code></pre>
 <p>Make sure Aave and token registry contracts are deployed before initializing SAYV.</p>
 <hr>
-<h2 id="-how-it-works">🚀 How It Works</h2>
+<h2 id="how-it-works">How It Works</h2>
 <h3 id="1-deposit">1. Deposit</h3>
 <pre><code class="language-solidity">sayv.depositToVault(token, amount);
 </code></pre>
@@ -877,7 +877,7 @@ hue-6-2: #e6c07b
 </code></pre>
 <p>Once debt is repaid → user gets collateral back → shares are re-minted.</p>
 <hr>
-<h2 id="-share-model">📊 Share Model</h2>
+<h2 id="share-model">Share Model</h2>
 <p>SAYV uses share-based accounting to represent user balances:</p>
 <ul>
 <li><code>s_yieldShares</code> — user’s share balance</li>
@@ -886,7 +886,7 @@ hue-6-2: #e6c07b
 <li>Revenue shares are claimed from YieldWield and added to <code>s_totalRevenueShares</code></li>
 </ul>
 <hr>
-<h2 id="️-token-management-owner-only">⚙️ Token Management (Owner Only)</h2>
+<h2 id="token-management-owner-only">Token Management (Owner Only)</h2>
 <pre><code class="language-solidity">sayv.managePermittedTokens(token, true);  // Add
 sayv.managePermittedTokens(token, false); // Remove
 </code></pre>
@@ -895,11 +895,11 @@ sayv.managePermittedTokens(token, false); // Remove
 <li>TokenRegistry is used for permissioning</li>
 </ul>
 <hr>
-<h2 id="-run-tests">🧪 Run Tests</h2>
+<h2 id="run-tests">Run Tests</h2>
 <pre><code class="language-bash">forge <span class="hljs-built_in">test</span>
 </code></pre>
 <hr>
-<h2 id="-license">📜 License</h2>
+<h2 id="license">License</h2>
 <p>MIT</p>
 
             

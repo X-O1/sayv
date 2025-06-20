@@ -1,10 +1,10 @@
-# 💰 SAYV v1
+# SAYV v1
 
 SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.
 
 ---
 
-## ✨ What It Does
+## What It Does
 
 SAYV handles the vault logic for:
 
@@ -17,7 +17,7 @@ SAYV handles the vault logic for:
 
 ---
 
-## 🛠️ Installation (Forge)
+## Installation (Forge)
 
 To install SAYV into your Foundry project:
 
@@ -42,7 +42,7 @@ remappings = [
 
 ---
 
-## 📡 Deploying SAYV
+## Deploying SAYV
 
 ```solidity
 new Sayv(
@@ -56,7 +56,7 @@ Make sure Aave and token registry contracts are deployed before initializing SAY
 
 ---
 
-## 🚀 How It Works
+## How It Works
 
 ### 1. Deposit
 
@@ -100,7 +100,7 @@ Once debt is repaid → user gets collateral back → shares are re-minted.
 
 ---
 
-## 📊 Share Model
+## Share Model
 
 SAYV uses share-based accounting to represent user balances:
 
@@ -111,7 +111,7 @@ SAYV uses share-based accounting to represent user balances:
 
 ---
 
-## ⚙️ Token Management (Owner Only)
+## Token Management (Owner Only)
 
 ```solidity
 sayv.managePermittedTokens(token, true);  // Add
@@ -123,7 +123,7 @@ sayv.managePermittedTokens(token, false); // Remove
 
 ---
 
-## 🧪 Run Tests
+## Run Tests
 
 ```bash
 forge test
@@ -131,6 +131,6 @@ forge test
 
 ---
 
-## 📜 License
+## License
 
 MIT
