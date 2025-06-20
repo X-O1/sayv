@@ -22,7 +22,7 @@ SAYV handles the vault logic for:
 To install SAYV into your Foundry project:
 
 ```bash
-forge install smartcontractengineer/sayv
+forge install X-O1/sayv
 ```
 
 Then add your remappings to `foundry.toml`:
