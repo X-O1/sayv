@@ -5,11 +5,12 @@ import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
-import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {IYieldWield} from "@yieldwield/interfaces/IYieldWield.sol";
 import {ITokenRegistry} from "@token-registry/Interfaces/ITokenRegistry.sol";
+import "@openzeppelin/utils/ReentrancyGuard.sol";
 
-contract Sayv {
+contract Sayv is ReentrancyGuard {
     // External contract interface for yield management
     IYieldWield public immutable i_yieldWield;
     // Token registry contract to manage allowed tokens
@@ -76,7 +77,6 @@ contract Sayv {
     /// @param _amount The amount of tokens to deposit
     function depositToVault(address _token, uint256 _amount) public {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
-        if (!IERC20(_token).approve(address(this), type(uint256).max)) revert APPROVING_TOKEN_ALLOWANCE_FAILED();
         if (IERC20(_token).allowance(msg.sender, address(this)) < _amount) revert ALLOWANCE_NOT_ENOUGH();
         if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
 
@@ -91,7 +91,7 @@ contract Sayv {
     /// @notice Redeems yield shares and withdraws tokens
     /// @param _token The token to withdraw
     /// @param _amount The amount of tokens to withdraw
-    function withdrawFromVault(address _token, uint256 _amount) external {
+    function withdrawFromVault(address _token, uint256 _amount) external nonReentrant {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
         if (_amount > getAccountShareValue(_token, msg.sender)) revert INSUFFICIENT_AVAILABLE_FUNDS();
 
@@ -104,7 +104,6 @@ contract Sayv {
         s_totalYieldShares -= sharesRedeemed;
 
         i_aavePool.withdraw(_token, _amount, msg.sender);
-
         emit Withdraw_From_Pool(_token, _amount, msg.sender);
     }
 
@@ -112,7 +111,7 @@ contract Sayv {
     /// @param _token The token to use for collateral and to receive as advance
     /// @param _collateral The amount of token to offer as collateral
     /// @param _advanceAmount The amount of token the user wants to receive as an advance
-    function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount) external {
+    function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount) external nonReentrant {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
         if (i_yieldWield.getTotalDebt(_token) >= getShareValue(_token, s_totalYieldShares)) {
             revert ADVANCES_AT_MAX_CAPACITY();

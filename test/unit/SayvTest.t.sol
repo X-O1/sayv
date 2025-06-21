@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Sayv} from "../../src/Sayv.sol";
-import {IERC20} from "@openzeppelin/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {YieldWield} from "@yieldwield/YieldWield.sol";
 import {TokenRegistry} from "@token-registry/TokenRegistry.sol";
 
