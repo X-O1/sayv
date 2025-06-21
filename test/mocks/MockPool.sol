@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MockUSDC} from "../mocks/MockUsdc.sol";
+import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {MockAUSDC} from "../mocks/MockAUSDC.sol";
 import {DataTypes} from "../mocks/MockDataTyples.sol";
 
