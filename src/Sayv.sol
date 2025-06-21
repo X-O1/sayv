@@ -26,6 +26,8 @@ contract Sayv is ReentrancyGuard {
     // Total shares collected as revenue (fees)
     uint256 private s_totalRevenueShares;
 
+    uint256 constant RAY = 1e27;
+
     // Mapping of user => token => yield share amount
     mapping(address account => mapping(address token => uint256 amount)) public s_yieldShares;
 
@@ -113,6 +115,8 @@ contract Sayv is ReentrancyGuard {
     /// @param _advanceAmount The amount of token the user wants to receive as an advance
     function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount) external nonReentrant {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
+
+        // Total advances can not be > than Total Deposits
         if (i_yieldWield.getTotalDebt(_token) >= getShareValue(_token, s_totalYieldShares)) {
             revert ADVANCES_AT_MAX_CAPACITY();
         }
@@ -193,14 +197,14 @@ contract Sayv is ReentrancyGuard {
     // Reads current Aave liquidity index (scaled down)
     function _getCurrentLiquidityIndex(address _token) internal view returns (uint256) {
         DataTypes.ReserveData memory reserve = i_aavePool.getReserveData(_token);
-        return uint256(reserve.liquidityIndex) / 1e21;
+        return uint256(reserve.liquidityIndex);
     }
 
     // Converts token amount to share units based on index
     function _shareConverter(address _token, uint256 _usdcAmount) private view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
         if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (_usdcAmount * 1e27) / currentLiquidityIndex;
+        return (_usdcAmount * RAY) / currentLiquidityIndex;
     }
 
     // Returns user’s share balance for token
@@ -212,14 +216,14 @@ contract Sayv is ReentrancyGuard {
     function getAccountShareValue(address _token, address _account) public view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
         if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (s_yieldShares[_account][_token] * currentLiquidityIndex + 1e27 - 1) / 1e27;
+        return (s_yieldShares[_account][_token] * currentLiquidityIndex + RAY - 1) / RAY;
     }
 
     // Returns value of shares in token terms
     function getShareValue(address _token, uint256 _shares) public view returns (uint256) {
         uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
         if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (_shares * currentLiquidityIndex + 1e27 - 1) / 1e27;
+        return (_shares * currentLiquidityIndex + RAY - 1) / RAY;
     }
 
     // Returns value of all collected revenue shares
