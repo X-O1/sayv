@@ -86,26 +86,31 @@ contract SayvTest is Test {
         assertEq(usdc.balanceOf(user), 900);
         assertEq(aUSDC.balanceOf(sayvAddress), 100);
         assertEq(sayv.getAccountShareValue(usdcAddress, user), 100);
+        console.logUint(sayv.getAccountShareValue(usdcAddress, user));
 
         vm.prank(dev);
-        mockPool.setLiquidityIndex(address(usdc), 12 * RAY);
+        mockPool.setLiquidityIndex(address(usdc), 12e26);
         assertEq(sayv.getAccountShareValue(usdcAddress, user), 120);
     }
 
-    // function testWithdrawAndAccounting() public {
-    //     vm.prank(user);
-    //     sayv.depositToVault(usdcAddress, 100);
+    function testWithdrawAndAccounting() public {
+        vm.prank(user);
+        sayv.depositToVault(usdcAddress, 100);
+        assertEq(usdc.balanceOf(user), 900);
+        assertEq(aUSDC.balanceOf(sayvAddress), 100);
+        console.logUint(aUSDC.balanceOf(sayvAddress));
 
-    //     vm.warp(block.timestamp + 356 days);
+        vm.prank(dev);
+        mockPool.setLiquidityIndex(address(usdc), 2e27);
 
-    //     vm.prank(dev);
-    //     sayv.depositToVault(usdcAddress, 100);
+        vm.prank(user);
+        sayv.withdrawFromVault(usdcAddress, 100);
 
-    //     vm.prank(user);
-    //     sayv.withdrawFromVault(usdcAddress, 100);
-    //     console.logUint(sayv.getAccountShareValue(usdcAddress, user));
-    //     assertEq(IERC20(usdcAddress).balanceOf(user), 100);
-    // }
+        assertEq(sayv.getAccountNumOfShares(user, usdcAddress), 50);
+        assertEq(sayv.getAccountShareValue(usdcAddress, user), 100);
+        assertEq(usdc.balanceOf(user), 1000);
+        console.logUint(aUSDC.balanceOf(sayvAddress));
+    }
 
     // function testGettingYieldAdvance() public {
     //     vm.prank(user);

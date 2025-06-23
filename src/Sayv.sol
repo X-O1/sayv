@@ -8,9 +8,12 @@ import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesPro
 import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {IYieldWield} from "@yieldwield/interfaces/IYieldWield.sol";
 import {ITokenRegistry} from "@token-registry/Interfaces/ITokenRegistry.sol";
+import {WadRayMath} from "@aave-v3-core/protocol/libraries/math/WadRayMath.sol";
 import "@openzeppelin/utils/ReentrancyGuard.sol";
 
 contract Sayv is ReentrancyGuard {
+    using WadRayMath for uint256;
+
     // External contract interface for yield management
     IYieldWield public immutable i_yieldWield;
     // Token registry contract to manage allowed tokens
@@ -25,8 +28,6 @@ contract Sayv is ReentrancyGuard {
     uint256 private s_totalYieldShares;
     // Total shares collected as revenue (fees)
     uint256 private s_totalRevenueShares;
-
-    uint256 constant RAY = 1e27;
 
     // Mapping of user => token => yield share amount
     mapping(address account => mapping(address token => uint256 amount)) public s_yieldShares;
@@ -55,9 +56,7 @@ contract Sayv is ReentrancyGuard {
 
     // Modifier to restrict function to only the contract owner
     modifier onlyOwner() {
-        if (msg.sender != i_owner) {
-            revert NOT_OWNER();
-        }
+        if (msg.sender != i_owner) revert NOT_OWNER();
         _;
     }
 
@@ -68,7 +67,6 @@ contract Sayv is ReentrancyGuard {
         _isApproved
             ? i_tokenRegistry.addTokenToRegistry(_tokenAddress)
             : i_tokenRegistry.removeTokenFromRegistry(_tokenAddress);
-
         if (_isApproved) {
             IERC20(_tokenAddress).approve(address(i_aavePool), type(uint256).max);
         }
@@ -83,7 +81,7 @@ contract Sayv is ReentrancyGuard {
         if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
 
         i_aavePool.supply(_token, _amount, address(this), 0);
-        uint256 sharesClaimed = _shareConverter(_token, _amount);
+        uint256 sharesClaimed = _amount.rayDiv(_getCurrentLiquidityIndex(_token));
         s_yieldShares[msg.sender][_token] += sharesClaimed;
         s_totalYieldShares += sharesClaimed;
 
@@ -95,9 +93,11 @@ contract Sayv is ReentrancyGuard {
     /// @param _amount The amount of tokens to withdraw
     function withdrawFromVault(address _token, uint256 _amount) external nonReentrant {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
-        if (_amount > getAccountShareValue(_token, msg.sender)) revert INSUFFICIENT_AVAILABLE_FUNDS();
 
-        uint256 sharesRedeemed = _shareConverter(_token, _amount);
+        uint256 accountShareValue = getAccountShareValue(_token, msg.sender);
+        if (_amount > accountShareValue) revert INSUFFICIENT_AVAILABLE_FUNDS();
+
+        uint256 sharesRedeemed = _amount.rayDiv(_getCurrentLiquidityIndex(_token));
         if (s_yieldShares[msg.sender][_token] < sharesRedeemed || s_totalYieldShares < sharesRedeemed) {
             revert UNDERFLOW();
         }
@@ -124,7 +124,7 @@ contract Sayv is ReentrancyGuard {
         address account = msg.sender;
         if (_collateral > getAccountShareValue(_token, account)) revert INSUFFICIENT_AVAILABLE_FUNDS();
 
-        uint256 sharesOffered = _shareConverter(_token, _collateral);
+        uint256 sharesOffered = _collateral.rayDiv(_getCurrentLiquidityIndex(_token));
         s_yieldShares[account][_token] -= sharesOffered;
         s_totalYieldShares -= sharesOffered;
 
@@ -161,7 +161,7 @@ contract Sayv is ReentrancyGuard {
 
         address account = msg.sender;
         uint256 collateralWithdrawn = i_yieldWield.withdrawCollateral(account, _token);
-        uint256 shares = _shareConverter(_token, collateralWithdrawn);
+        uint256 shares = collateralWithdrawn.rayDiv(_getCurrentLiquidityIndex(_token));
 
         s_yieldShares[account][_token] += shares;
         s_totalYieldShares += shares;
@@ -169,19 +169,24 @@ contract Sayv is ReentrancyGuard {
         emit Withdraw_Collateral(account, _token, collateralWithdrawn);
     }
 
-    // Convenience fee calculation (10%)
-    function _getConvenienceFee(uint256 _amount) internal pure returns (uint256) {
-        return _getPercentageAmount(_amount, 10);
+    // Returns user’s share balance for token
+    function getAccountNumOfShares(address _account, address _token) public view returns (uint256) {
+        return s_yieldShares[_account][_token];
     }
 
-    // Calculates a percentage
-    function _getPercentage(uint256 _partNumber, uint256 _wholeNumber) internal pure returns (uint256) {
-        return (_partNumber * 100) / _wholeNumber;
+    // Returns token value of a user’s shares
+    function getAccountShareValue(address _token, address _account) public view returns (uint256) {
+        return s_yieldShares[_account][_token].rayMul(_getCurrentLiquidityIndex(_token));
     }
 
-    // Returns value of a percentage of an amount
-    function _getPercentageAmount(uint256 _wholeNumber, uint256 _percent) internal pure returns (uint256) {
-        return (_wholeNumber * _percent) / 100;
+    // Returns value of shares in token terms
+    function getShareValue(address _token, uint256 _shares) public view returns (uint256) {
+        return _shares.rayMul(_getCurrentLiquidityIndex(_token));
+    }
+
+    // Returns value of all collected revenue shares
+    function getValueOfTotalRevenueShares(address _token) external view returns (uint256) {
+        return getShareValue(_token, s_totalRevenueShares);
     }
 
     // Address of this vault
@@ -194,41 +199,11 @@ contract Sayv is ReentrancyGuard {
         return address(i_aavePool);
     }
 
-    // Reads current Aave liquidity index (scaled down)
+    // Reads current Aave liquidity index
     function _getCurrentLiquidityIndex(address _token) internal view returns (uint256) {
-        DataTypes.ReserveData memory reserve = i_aavePool.getReserveData(_token);
-        return uint256(reserve.liquidityIndex);
-    }
-
-    // Converts token amount to share units based on index
-    function _shareConverter(address _token, uint256 _usdcAmount) private view returns (uint256) {
-        uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
-        if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (_usdcAmount * RAY) / currentLiquidityIndex;
-    }
-
-    // Returns user’s share balance for token
-    function getAccountNumOfShares(address _account, address _token) public view returns (uint256) {
-        return s_yieldShares[_account][_token];
-    }
-
-    // Returns token value of a user’s shares
-    function getAccountShareValue(address _token, address _account) public view returns (uint256) {
-        uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
-        if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (s_yieldShares[_account][_token] * currentLiquidityIndex + RAY - 1) / RAY;
-    }
-
-    // Returns value of shares in token terms
-    function getShareValue(address _token, uint256 _shares) public view returns (uint256) {
-        uint256 currentLiquidityIndex = _getCurrentLiquidityIndex(_token);
-        if (currentLiquidityIndex < 1) revert INVALID_LIQUIDITY_INDEX();
-        return (_shares * currentLiquidityIndex + RAY - 1) / RAY;
-    }
-
-    // Returns value of all collected revenue shares
-    function getValueOfTotalRevenueShares(address _token) external view returns (uint256) {
-        return getShareValue(_token, s_totalRevenueShares);
+        uint256 currentIndex = uint256(i_aavePool.getReserveData(_token).liquidityIndex);
+        if (currentIndex < 1e27) revert INVALID_LIQUIDITY_INDEX();
+        return currentIndex;
     }
 
     // Checks if token is allowed
