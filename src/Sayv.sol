@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
-
 /**
  * @title SAYV
  * @notice Manages deposits, withrawls, advances on future yield via YieldWield, and yield generation via Aave v3
  * @dev All token amounts are internally converted to RAY (1e27) units.
  */
+
 import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
@@ -19,11 +19,11 @@ import "@openzeppelin/utils/ReentrancyGuard.sol";
 contract Sayv is ReentrancyGuard {
     using WadRayMath for uint256;
 
-    // external contract interface for yield management
+    // yieldwield interface for yield advance management
     IYieldWield public immutable i_yieldWield;
     // token registry contract to manage allowed tokens
     ITokenRegistry public immutable i_tokenRegistry;
-    // aave pool to handle deposit/withdraw operations
+    // aave pool to handle yield generation operations
     IPool public immutable i_aavePool;
     // provider for getting the aave pool
     IPoolAddressesProvider public immutable i_addressesProvider;
@@ -33,7 +33,7 @@ contract Sayv is ReentrancyGuard {
     uint256 public s_totalYieldShares;
     // total shares collected as revenue (fees)
     uint256 public s_totalRevenueShares;
-    // ray (1e27)
+    // RAY units(1e27)
     uint256 public RAY = 1e27;
 
     // user yield shares amount
@@ -52,7 +52,7 @@ contract Sayv is ReentrancyGuard {
         address indexed account, address indexed token, uint256 repaidAmount, uint256 currentDebt
     );
 
-    // constructor sets up external references and stores deployer as owner
+    // sets up external references and stores deployer as owner
     constructor(address _addressProviderAddress, address _yieldWieldAddress, address _tokenRegistryAddress) {
         i_addressesProvider = IPoolAddressesProvider(_addressProviderAddress);
         i_aavePool = IPool(i_addressesProvider.getPool());
@@ -67,7 +67,7 @@ contract Sayv is ReentrancyGuard {
         _;
     }
 
-    /// @notice adds or removes a token from the permitted list and approves aave if adding
+    /// @notice adds or removes a token from the permitted list and approves aave pool if adding
     /// @param _tokenAddress the token to add or remove
     /// @param _isApproved true to add to the registry, false to remove
     function managePermittedTokens(address _tokenAddress, bool _isApproved) external onlyOwner {
@@ -215,7 +215,7 @@ contract Sayv is ReentrancyGuard {
         return _num * RAY;
     }
 
-    // converts number to ray (1e27)
+    // converts number from ray (1e27)
     function _fromRay(uint256 _num) private view returns (uint256) {
         return _num / RAY;
     }
