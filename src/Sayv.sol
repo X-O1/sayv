@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+/**
+ * @title SAYV
+ * @notice Manages deposits, withrawls, advances on future yield via YieldWield, and yield generation via Aave v3
+ * @dev All token amounts are internally converted to RAY (1e27) units.
+ */
 import "./SayvErrors.sol";
 import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
@@ -14,38 +19,40 @@ import "@openzeppelin/utils/ReentrancyGuard.sol";
 contract Sayv is ReentrancyGuard {
     using WadRayMath for uint256;
 
-    // External contract interface for yield management
+    // external contract interface for yield management
     IYieldWield public immutable i_yieldWield;
-    // Token registry contract to manage allowed tokens
+    // token registry contract to manage allowed tokens
     ITokenRegistry public immutable i_tokenRegistry;
-    // Aave pool to handle deposit/withdraw operations
+    // aave pool to handle deposit/withdraw operations
     IPool public immutable i_aavePool;
-    // Provider for getting the Aave pool
+    // provider for getting the aave pool
     IPoolAddressesProvider public immutable i_addressesProvider;
-    // Contract owner address
+    // contract owner address
     address public immutable i_owner;
-    // Total shares issued for yield deposits
-    uint256 private s_totalYieldShares;
-    // Total shares collected as revenue (fees)
-    uint256 private s_totalRevenueShares;
+    // total shares issued for yield deposits
+    uint256 public s_totalYieldShares;
+    // total shares collected as revenue (fees)
+    uint256 public s_totalRevenueShares;
+    // ray (1e27)
+    uint256 public RAY = 1e27;
 
-    // Mapping of user => token => yield share amount
+    // user yield shares amount
     mapping(address account => mapping(address token => uint256 amount)) public s_yieldShares;
 
-    // Emitted on deposit
+    // emitted on deposit
     event Deposit_To_Pool(address indexed token, uint256 indexed amount);
-    // Emitted on withdrawal
+    // emitted on withdrawal
     event Withdraw_From_Pool(address indexed token, uint256 indexed amount, address indexed to);
-    // Emitted when a user takes an advance against yield
+    // emitted when a user takes an advance against yield
     event Advance_Taken(address indexed account, address indexed token, uint256 collateral, uint256 advanceMinusFee);
-    // Emitted when user collateral is withdrawn
+    // emitted when user collateral is withdrawn
     event Withdraw_Collateral(address indexed account, address indexed token, uint256 collateralWithdrawn);
-    // Emitted when user repays advance
+    // emitted when user repays advance
     event Advance_Repayment_Deposit(
         address indexed account, address indexed token, uint256 repaidAmount, uint256 currentDebt
     );
 
-    // Constructor sets up external references and stores deployer as owner
+    // constructor sets up external references and stores deployer as owner
     constructor(address _addressProviderAddress, address _yieldWieldAddress, address _tokenRegistryAddress) {
         i_addressesProvider = IPoolAddressesProvider(_addressProviderAddress);
         i_aavePool = IPool(i_addressesProvider.getPool());
@@ -54,15 +61,15 @@ contract Sayv is ReentrancyGuard {
         i_tokenRegistry = ITokenRegistry(_tokenRegistryAddress);
     }
 
-    // Modifier to restrict function to only the contract owner
+    // modifier to restrict function to only the contract owner
     modifier onlyOwner() {
         if (msg.sender != i_owner) revert NOT_OWNER();
         _;
     }
 
-    /// @notice Adds or removes a token from the permitted list and approves Aave if adding
-    /// @param _tokenAddress The token to add or remove
-    /// @param _isApproved True to add to the registry, false to remove
+    /// @notice adds or removes a token from the permitted list and approves aave if adding
+    /// @param _tokenAddress the token to add or remove
+    /// @param _isApproved true to add to the registry, false to remove
     function managePermittedTokens(address _tokenAddress, bool _isApproved) external onlyOwner {
         _isApproved
             ? i_tokenRegistry.addTokenToRegistry(_tokenAddress)
@@ -72,90 +79,112 @@ contract Sayv is ReentrancyGuard {
         }
     }
 
-    /// @notice Deposits tokens into Aave and mints yield shares
-    /// @param _token The token to deposit
-    /// @param _amount The amount of tokens to deposit
-    function depositToVault(address _token, uint256 _amount) public {
+    /// @notice deposits tokens into aave and mints yield shares
+    /// @param _token the token to deposit
+    /// @param _amount the amount of tokens to deposit
+    /// @return returns amount deposited
+    function depositToVault(address _token, uint256 _amount) public returns (uint256) {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
         if (IERC20(_token).allowance(msg.sender, address(this)) < _amount) revert ALLOWANCE_NOT_ENOUGH();
         if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
 
         i_aavePool.supply(_token, _amount, address(this), 0);
-        uint256 sharesClaimed = _amount.rayDiv(_getCurrentLiquidityIndex(_token));
+
+        uint256 rayAmount = _toRay(_amount);
+        uint256 currentIndex = _getCurrentLiquidityIndex(_token);
+        uint256 sharesClaimed = rayAmount.rayDiv(currentIndex);
+
         s_yieldShares[msg.sender][_token] += sharesClaimed;
         s_totalYieldShares += sharesClaimed;
 
         emit Deposit_To_Pool(_token, _amount);
+        return _amount;
     }
 
-    /// @notice Redeems yield shares and withdraws tokens
-    /// @param _token The token to withdraw
-    /// @param _amount The amount of tokens to withdraw
-    function withdrawFromVault(address _token, uint256 _amount) external nonReentrant {
+    /// @notice redeems yield shares and withdraws tokens
+    /// @param _token the token to withdraw
+    /// @param _amount the amount of tokens to withdraw
+    /// @return returns amount withdrawn
+    function withdrawFromVault(address _token, uint256 _amount) external nonReentrant returns (uint256) {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
 
-        uint256 accountShareValue = getAccountShareValue(_token, msg.sender);
-        if (_amount > accountShareValue) revert INSUFFICIENT_AVAILABLE_FUNDS();
+        uint256 rayAmount = _toRay(_amount);
+        uint256 currentIndex = _getCurrentLiquidityIndex(_token);
+        uint256 accountCurrentShares = s_yieldShares[msg.sender][_token];
+        if (rayAmount > accountCurrentShares.rayMul(currentIndex)) revert INSUFFICIENT_AVAILABLE_FUNDS();
 
-        uint256 sharesRedeemed = _amount.rayDiv(_getCurrentLiquidityIndex(_token));
-        if (s_yieldShares[msg.sender][_token] < sharesRedeemed || s_totalYieldShares < sharesRedeemed) {
+        uint256 sharesRedeemed = rayAmount.rayDiv(currentIndex);
+        if (accountCurrentShares < sharesRedeemed || s_totalYieldShares < sharesRedeemed) {
             revert UNDERFLOW();
         }
 
         s_yieldShares[msg.sender][_token] -= sharesRedeemed;
         s_totalYieldShares -= sharesRedeemed;
 
-        i_aavePool.withdraw(_token, _amount, msg.sender);
+        uint256 withdrawAmount = i_aavePool.withdraw(_token, _amount, msg.sender);
         emit Withdraw_From_Pool(_token, _amount, msg.sender);
+        return withdrawAmount;
     }
 
-    /// @notice Allows a user to take an advance on future yield by pledging existing yield shares as collateral
-    /// @param _token The token to use for collateral and to receive as advance
-    /// @param _collateral The amount of token to offer as collateral
-    /// @param _advanceAmount The amount of token the user wants to receive as an advance
-    function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount) external nonReentrant {
+    /// @notice allows a user to take an advance on future yield by pledging existing yield shares as collateral
+    /// @param _token the token to use for collateral and to receive as advance
+    /// @param _collateral the amount of token to offer as collateral
+    /// @param _advanceAmount the amount of token the user wants to receive as an advance
+    /// @return returns advance amount minus fee
+    function getYieldAdvance(address _token, uint256 _collateral, uint256 _advanceAmount)
+        external
+        nonReentrant
+        returns (uint256)
+    {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
+        address account = msg.sender;
+        uint256 currentIndex = _getCurrentLiquidityIndex(_token);
 
-        // Total advances can not be > than Total Deposits
-        if (i_yieldWield.getTotalDebt(_token) >= getShareValue(_token, s_totalYieldShares)) {
+        // total advances can not be > than total deposits
+        if (i_yieldWield.getTotalDebt(_token) >= s_totalYieldShares.rayMul(currentIndex)) {
             revert ADVANCES_AT_MAX_CAPACITY();
         }
 
-        address account = msg.sender;
-        if (_collateral > getAccountShareValue(_token, account)) revert INSUFFICIENT_AVAILABLE_FUNDS();
+        uint256 accountCurrentShares = s_yieldShares[account][_token];
+        if (_toRay(_collateral) > accountCurrentShares.rayMul(currentIndex)) revert INSUFFICIENT_AVAILABLE_FUNDS();
 
-        uint256 sharesOffered = _collateral.rayDiv(_getCurrentLiquidityIndex(_token));
+        uint256 sharesOffered = _toRay(_collateral).rayDiv(currentIndex);
         s_yieldShares[account][_token] -= sharesOffered;
         s_totalYieldShares -= sharesOffered;
 
         uint256 advanceMinusFee = i_yieldWield.getAdvance(account, _token, _collateral, _advanceAmount);
-        uint256 newRevenueShares = i_yieldWield.claimRevenue(_token);
-        s_totalRevenueShares += newRevenueShares;
+        uint256 revenueShares = i_yieldWield.claimRevenue(_token);
 
-        i_aavePool.withdraw(_token, advanceMinusFee, account);
-        emit Advance_Taken(account, _token, _collateral, advanceMinusFee);
+        uint256 newRevShareValue = revenueShares.rayMul(currentIndex);
+        uint256 newRevShares = newRevShareValue.rayDiv(currentIndex);
+        s_totalRevenueShares += newRevShares;
+
+        i_aavePool.withdraw(_token, _fromRay(advanceMinusFee), account);
+        emit Advance_Taken(account, _token, _collateral, _fromRay(advanceMinusFee));
+        return _fromRay(advanceMinusFee);
     }
 
-    /// @notice Repays an outstanding yield advance using token deposit
-    /// @param _token The token being used to repay
-    /// @param _amount The amount to repay
+    /// @notice repays an outstanding yield advance using token deposit
+    /// @param _token the token being used to repay
+    /// @param _amount the amount to repay
     function repayYieldAdvanceWithDeposit(address _token, uint256 _amount) external {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
 
         address account = msg.sender;
-        uint256 currentDebt = i_yieldWield.getAndupdateAccountDebtFromYield(account, _token);
+        uint256 currentDebt = i_yieldWield.getDebt(account, _token);
         if (currentDebt == 0) revert ACCOUNT_HAS_NO_DEBT();
-        if (_amount > currentDebt) revert AMOUNT_IS_GREATER_THAN_TOTAL_DEBT();
+        if (_toRay(_amount) > currentDebt) revert AMOUNT_IS_GREATER_THAN_TOTAL_DEBT();
 
         uint256 updatedDebt = i_yieldWield.repayAdvanceWithDeposit(account, _token, _amount);
-        if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
 
+        if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
         i_aavePool.supply(_token, _amount, address(this), 0);
-        emit Advance_Repayment_Deposit(account, _token, _amount, updatedDebt);
+
+        emit Advance_Repayment_Deposit(account, _token, _amount, _fromRay(updatedDebt));
     }
 
-    /// @notice Withdraws user's collateral after full debt repayment and remints yield shares
-    /// @param _token The token for which collateral is being withdrawn
+    /// @notice withdraws user's collateral after full debt repayment and remints yield shares
+    /// @param _token the token for which collateral is being withdrawn
     function withdrawYieldAdvanceCollateral(address _token) external {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
 
@@ -166,48 +195,53 @@ contract Sayv is ReentrancyGuard {
         s_yieldShares[account][_token] += shares;
         s_totalYieldShares += shares;
 
-        emit Withdraw_Collateral(account, _token, collateralWithdrawn);
+        emit Withdraw_Collateral(account, _token, _fromRay(collateralWithdrawn));
     }
 
-    // Returns user’s share balance for token
-    function getAccountNumOfShares(address _account, address _token) public view returns (uint256) {
-        return s_yieldShares[_account][_token];
-    }
-
-    // Returns token value of a user’s shares
-    function getAccountShareValue(address _token, address _account) public view returns (uint256) {
-        return s_yieldShares[_account][_token].rayMul(_getCurrentLiquidityIndex(_token));
-    }
-
-    // Returns value of shares in token terms
-    function getShareValue(address _token, uint256 _shares) public view returns (uint256) {
-        return _shares.rayMul(_getCurrentLiquidityIndex(_token));
-    }
-
-    // Returns value of all collected revenue shares
-    function getValueOfTotalRevenueShares(address _token) external view returns (uint256) {
-        return getShareValue(_token, s_totalRevenueShares);
-    }
-
-    // Address of this vault
-    function getVaultAddress() external view returns (address) {
-        return address(this);
-    }
-
-    // Returns Aave pool address in use
-    function getActivePoolAddress() external view returns (address) {
-        return address(i_aavePool);
-    }
-
-    // Reads current Aave liquidity index
-    function _getCurrentLiquidityIndex(address _token) internal view returns (uint256) {
+    // reads current aave liquidity index
+    function _getCurrentLiquidityIndex(address _token) private view returns (uint256) {
         uint256 currentIndex = uint256(i_aavePool.getReserveData(_token).liquidityIndex);
         if (currentIndex < 1e27) revert INVALID_LIQUIDITY_INDEX();
         return currentIndex;
     }
 
-    // Checks if token is allowed
-    function _isTokenPermitted(address _token) internal view returns (bool) {
+    // checks if token is allowed
+    function _isTokenPermitted(address _token) private view returns (bool) {
         return i_tokenRegistry.checkIfTokenIsApproved(_token);
+    }
+
+    // converts number to ray (1e27)
+    function _toRay(uint256 _num) private view returns (uint256) {
+        return _num * RAY;
+    }
+
+    // converts number to ray (1e27)
+    function _fromRay(uint256 _num) private view returns (uint256) {
+        return _num / RAY;
+    }
+
+    // returns user’s share balance for token
+    function getAccountNumOfShares(address _account, address _token) external view returns (uint256) {
+        return s_yieldShares[_account][_token];
+    }
+
+    // returns token value of a user’s shares
+    function getAccountShareValue(address _account, address _token) external view returns (uint256) {
+        return s_yieldShares[_account][_token].rayMul(_getCurrentLiquidityIndex(_token));
+    }
+
+    // returns value of all collected revenue shares
+    function getValueOfTotalRevenueShares(address _token) external view returns (uint256) {
+        return s_totalRevenueShares.rayMul(_getCurrentLiquidityIndex(_token));
+    }
+
+    // address of this vault
+    function getVaultAddress() external view returns (address) {
+        return address(this);
+    }
+
+    // returns aave pool address in use
+    function getActivePoolAddress() external view returns (address) {
+        return address(i_aavePool);
     }
 }
