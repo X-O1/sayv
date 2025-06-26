@@ -2,8 +2,8 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Sayv} from "../../src/Sayv.sol";
-import {YieldWield} from "@yieldwield/YieldWield.sol";
+import {Sayv} from "../../contracts/Sayv.sol";
+import {YieldAdvance} from "@yield-advance/YieldAdvance.sol";
 import {TokenRegistry} from "@token-registry/TokenRegistry.sol";
 import {MockPool} from "../mocks/MockPool.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
@@ -15,8 +15,8 @@ import {MockAUSDC} from "../mocks/MockAUSDC.sol";
 contract SayvTest is Test {
     Sayv sayv;
     address sayvAddress;
-    YieldWield yieldWield;
-    address yieldWieldAddress;
+    YieldAdvance yieldAdvance;
+    address yieldAdvanceAddress;
     TokenRegistry tokenRegistry;
     MockPool mockPool;
     address addressProvider;
@@ -40,12 +40,12 @@ contract SayvTest is Test {
         aUSDCAddress = aUSDC.getAddress();
         mockPool = new MockPool(usdcAddress, aUSDCAddress);
         addressProvider = mockPool.getPool();
-        yieldWield = new YieldWield(addressProvider);
-        yieldWieldAddress = yieldWield.getYieldWieldContractAddress();
+        yieldAdvance = new YieldAdvance(addressProvider);
+        yieldAdvanceAddress = yieldAdvance.getYieldAdvanceContractAddress();
         tokenRegistry = new TokenRegistry();
         tokenRegistryAddress = tokenRegistry.getTokenRegistryAddress();
         vm.startPrank(dev);
-        sayv = new Sayv(addressProvider, yieldWieldAddress, tokenRegistryAddress);
+        sayv = new Sayv(addressProvider, yieldAdvanceAddress, tokenRegistryAddress);
         vm.stopPrank();
         sayvAddress = sayv.getVaultAddress();
         vm.prank(dev);

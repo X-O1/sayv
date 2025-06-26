@@ -816,7 +816,7 @@ hue-6-2: #e6c07b
         </head>
         <body class="vscode-body vscode-light">
             <h1 id="sayv-v1">SAYV v1</h1>
-<p>SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.</p>
+<p>SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield's Yield Advance for yield advance logic and TokenRegistry for token permissions.</p>
 <hr>
 <h2 id="what-it-does">What It Does</h2>
 <p>SAYV handles the vault logic for:</p>
@@ -824,9 +824,9 @@ hue-6-2: #e6c07b
 <li>Accepting stablecoin deposits from users</li>
 <li>Supplying those funds to Aave v3 to earn yield</li>
 <li>Tracking user balances using Aave’s liquidity index and share math</li>
-<li>Allowing users to take advances against future yield via YieldWield</li>
+<li>Allowing users to take advances against future yield via YieldWield's Yield Advance</li>
 <li>Managing an allowlist of tokens via TokenRegistry</li>
-<li>Claiming protocol revenue automatically from YieldWield fees</li>
+<li>Claiming protocol revenue automatically from Yield Advance fees</li>
 </ul>
 <hr>
 <h2 id="installation-forge">Installation (Forge)</h2>
@@ -835,13 +835,13 @@ hue-6-2: #e6c07b
 </code></pre>
 <p>Then add your remappings to <code>foundry.toml</code>:</p>
 <pre><code class="language-toml"><span class="hljs-section">[profile.default]</span>
-<span class="hljs-attr">src</span> = <span class="hljs-string">&#x27;src&#x27;</span>
+<span class="hljs-attr">src</span> = <span class="hljs-string">&#x27;contracts&#x27;</span>
 <span class="hljs-attr">out</span> = <span class="hljs-string">&#x27;out&#x27;</span>
 <span class="hljs-attr">libs</span> = [<span class="hljs-string">&#x27;lib&#x27;</span>]
 
 <span class="hljs-attr">remappings</span> = [
-  <span class="hljs-string">&#x27;@sayv/=lib/sayv/src/&#x27;</span>,
-  <span class="hljs-string">&#x27;@yieldwield/=lib/yieldwield/src/&#x27;</span>,
+  <span class="hljs-string">&#x27;@sayv/=lib/sayv/contracts/&#x27;</span>,
+  <span class="hljs-string">&#x27;@yield-advance/=lib/yield-advance/contracts/&#x27;</span>,
   <span class="hljs-string">&#x27;@token-registry/=lib/token-registry/src/&#x27;</span>
 ]
 </code></pre>
@@ -849,7 +849,7 @@ hue-6-2: #e6c07b
 <h2 id="deploying-sayv">Deploying SAYV</h2>
 <pre><code class="language-solidity">new Sayv(
   addressProviderAddress,      // Aave PoolAddressesProvider
-  yieldWieldAddress,           // YieldWield contract
+  yieldAdvanceAddress,         // YieldWield's Yield Advance contract
   tokenRegistryAddress         // TokenRegistry contract
 );
 </code></pre>
@@ -867,7 +867,7 @@ hue-6-2: #e6c07b
 <h3 id="3-take-advance">3. Take Advance</h3>
 <pre><code class="language-solidity">sayv.getYieldAdvance(token, collateralAmount, requestedAdvance);
 </code></pre>
-<p>User redeems part of their shares → YieldWield calculates advance + fee → SAYV withdraws and sends advance.</p>
+<p>User redeems part of their shares → YieldAdvance calculates advance + fee → SAYV withdraws and sends advance.</p>
 <h3 id="4-repay-advance">4. Repay Advance</h3>
 <pre><code class="language-solidity">sayv.repayYieldAdvanceWithDeposit(token, amount);
 </code></pre>
@@ -883,7 +883,7 @@ hue-6-2: #e6c07b
 <li><code>s_yieldShares</code> — user’s share balance</li>
 <li><code>s_totalYieldShares</code> — total protocol shares</li>
 <li>Shares convert to real token value via Aave’s <code>liquidityIndex</code></li>
-<li>Revenue shares are claimed from YieldWield and added to <code>s_totalRevenueShares</code></li>
+<li>Revenue shares are claimed from YieldWield's Yield Advance and added to <code>s_totalRevenueShares</code></li>
 </ul>
 <hr>
 <h2 id="token-management-owner-only">Token Management (Owner Only)</h2>

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 /**
  * @title SAYV
- * @notice Manages deposits, withrawls, advances on future yield via YieldWield, and yield generation via Aave v3
+ * @notice Manages deposits, withrawls, advances on future yield via YieldWield's Yield Advance, and yield generation via Aave v3
  * @dev All token amounts are internally converted to RAY (1e27) units.
  */
 
@@ -11,7 +11,7 @@ import {IPool} from "@aave-v3-core/interfaces/IPool.sol";
 import {DataTypes} from "@aave-v3-core/protocol/libraries/types/DataTypes.sol";
 import {IPoolAddressesProvider} from "@aave-v3-core/interfaces/IPoolAddressesProvider.sol";
 import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
-import {IYieldWield} from "@yieldwield/interfaces/IYieldWield.sol";
+import {IYieldAdvance} from "@yield-advance/interfaces/IYieldAdvance.sol";
 import {ITokenRegistry} from "@token-registry/Interfaces/ITokenRegistry.sol";
 import {WadRayMath} from "@aave-v3-core/protocol/libraries/math/WadRayMath.sol";
 import "@openzeppelin/utils/ReentrancyGuard.sol";
@@ -19,8 +19,8 @@ import "@openzeppelin/utils/ReentrancyGuard.sol";
 contract Sayv is ReentrancyGuard {
     using WadRayMath for uint256;
 
-    // yieldwield interface for yield advance management
-    IYieldWield public immutable i_yieldWield;
+    // yield-advance interface for yield advance management
+    IYieldAdvance public immutable i_yieldAdvance;
     // token registry contract to manage allowed tokens
     ITokenRegistry public immutable i_tokenRegistry;
     // aave pool to handle yield generation operations
@@ -53,11 +53,11 @@ contract Sayv is ReentrancyGuard {
     );
 
     // sets up external references and stores deployer as owner
-    constructor(address _addressProviderAddress, address _yieldWieldAddress, address _tokenRegistryAddress) {
+    constructor(address _addressProviderAddress, address _yieldAdvanceAddress, address _tokenRegistryAddress) {
         i_addressesProvider = IPoolAddressesProvider(_addressProviderAddress);
         i_aavePool = IPool(i_addressesProvider.getPool());
         i_owner = msg.sender;
-        i_yieldWield = IYieldWield(_yieldWieldAddress);
+        i_yieldAdvance = IYieldAdvance(_yieldAdvanceAddress);
         i_tokenRegistry = ITokenRegistry(_tokenRegistryAddress);
     }
 
@@ -141,7 +141,7 @@ contract Sayv is ReentrancyGuard {
         uint256 currentIndex = _getCurrentLiquidityIndex(_token);
 
         // total advances can not be > than total deposits
-        if (i_yieldWield.getTotalDebt(_token) >= s_totalYieldShares.rayMul(currentIndex)) {
+        if (i_yieldAdvance.getTotalDebt(_token) >= s_totalYieldShares.rayMul(currentIndex)) {
             revert ADVANCES_AT_MAX_CAPACITY();
         }
 
@@ -152,8 +152,8 @@ contract Sayv is ReentrancyGuard {
         s_yieldShares[account][_token] -= sharesOffered;
         s_totalYieldShares -= sharesOffered;
 
-        uint256 advanceMinusFee = i_yieldWield.getAdvance(account, _token, _collateral, _advanceAmount);
-        uint256 revenueShares = i_yieldWield.claimRevenue(_token);
+        uint256 advanceMinusFee = i_yieldAdvance.getAdvance(account, _token, _collateral, _advanceAmount);
+        uint256 revenueShares = i_yieldAdvance.claimRevenue(_token);
 
         uint256 newRevShareValue = revenueShares.rayMul(currentIndex);
         uint256 newRevShares = newRevShareValue.rayDiv(currentIndex);
@@ -171,11 +171,11 @@ contract Sayv is ReentrancyGuard {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
 
         address account = msg.sender;
-        uint256 currentDebt = i_yieldWield.getDebt(account, _token);
+        uint256 currentDebt = i_yieldAdvance.getDebt(account, _token);
         if (currentDebt == 0) revert ACCOUNT_HAS_NO_DEBT();
         if (_toRay(_amount) > currentDebt) revert AMOUNT_IS_GREATER_THAN_TOTAL_DEBT();
 
-        uint256 updatedDebt = i_yieldWield.repayAdvanceWithDeposit(account, _token, _amount);
+        uint256 updatedDebt = i_yieldAdvance.repayAdvanceWithDeposit(account, _token, _amount);
 
         if (!IERC20(_token).transferFrom(msg.sender, address(this), _amount)) revert DEPOSIT_FAILED();
         i_aavePool.supply(_token, _amount, address(this), 0);
@@ -189,7 +189,7 @@ contract Sayv is ReentrancyGuard {
         if (!_isTokenPermitted(_token)) revert TOKEN_NOT_PERMITTED();
 
         address account = msg.sender;
-        uint256 collateralWithdrawn = i_yieldWield.withdrawCollateral(account, _token);
+        uint256 collateralWithdrawn = i_yieldAdvance.withdrawCollateral(account, _token);
         uint256 shares = collateralWithdrawn.rayDiv(_getCurrentLiquidityIndex(_token));
 
         s_yieldShares[account][_token] += shares;

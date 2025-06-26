@@ -1,6 +1,6 @@
 # SAYV v1
 
-SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield for debt logic and TokenRegistry for token permissions.
+SAYV is a savings account that earns yield on digital dollars (stablecoins) via Aave and offers users optional cash advances against their future yield. It plugs directly into YieldWield's Yield Advance for yield advance logic and TokenRegistry for token permissions.
 
 ---
 
@@ -11,9 +11,9 @@ SAYV handles the vault logic for:
 * Accepting stablecoin deposits from users
 * Supplying those funds to Aave v3 to earn yield
 * Tracking user balances using Aave’s liquidity index and share math
-* Allowing users to take advances against future yield via YieldWield
+* Allowing users to take advances against future yield via YieldWield's Yield Advance 
 * Managing an allowlist of tokens via TokenRegistry
-* Claiming protocol revenue automatically from YieldWield fees
+* Claiming protocol revenue automatically from Yield Advance fees
 
 ---
 
@@ -29,13 +29,13 @@ Then add your remappings to `foundry.toml`:
 
 ```toml
 [profile.default]
-src = 'src'
+src = 'contracts'
 out = 'out'
 libs = ['lib']
 
 remappings = [
-  '@sayv/=lib/sayv/src/',
-  '@yieldwield/=lib/yieldwield/src/',
+  '@sayv/=lib/sayv/contracts/',
+  '@yield-advance/=lib/yield-advance/contracts/',
   '@token-registry/=lib/token-registry/src/'
 ]
 ```
@@ -47,7 +47,7 @@ remappings = [
 ```solidity
 new Sayv(
   addressProviderAddress,      // Aave PoolAddressesProvider
-  yieldWieldAddress,           // YieldWield contract
+  yieldAdvanceAddress,         // YieldWield's Yield Advance contract
   tokenRegistryAddress         // TokenRegistry contract
 );
 ```
@@ -80,7 +80,7 @@ User burns yield shares → SAYV withdraws from Aave → sends stablecoins to us
 sayv.getYieldAdvance(token, collateralAmount, requestedAdvance);
 ```
 
-User redeems part of their shares → YieldWield calculates advance + fee → SAYV withdraws and sends advance.
+User redeems part of their shares → YieldAdvance calculates advance + fee → SAYV withdraws and sends advance.
 
 ### 4. Repay Advance
 
@@ -107,7 +107,7 @@ SAYV uses share-based accounting to represent user balances:
 * `s_yieldShares` — user’s share balance
 * `s_totalYieldShares` — total protocol shares
 * Shares convert to real token value via Aave’s `liquidityIndex`
-* Revenue shares are claimed from YieldWield and added to `s_totalRevenueShares`
+* Revenue shares are claimed from YieldWield's Yield Advance and added to `s_totalRevenueShares`
 
 ---
 

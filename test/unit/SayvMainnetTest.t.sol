@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Sayv} from "../../src/Sayv.sol";
+import {Sayv} from "../../contracts/Sayv.sol";
 import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
-import {YieldWield} from "@yieldwield/YieldWield.sol";
+import {YieldAdvance} from "@yield-advance/YieldAdvance.sol";
 import {TokenRegistry} from "@token-registry/TokenRegistry.sol";
 
 /**
@@ -14,8 +14,8 @@ import {TokenRegistry} from "@token-registry/TokenRegistry.sol";
 contract SayvMainnetTest is Test {
     Sayv sayv;
     address sayvAddress;
-    YieldWield yieldWield;
-    address yieldWieldAddress;
+    YieldAdvance yieldAdvance;
+    address yieldAdvanceAddress;
     TokenRegistry tokenRegistry;
     address tokenRegistryAddress;
     address dev = 0x7Cc00Dc8B6c0aC2200b989367E30D91B7C7F5F43;
@@ -31,12 +31,12 @@ contract SayvMainnetTest is Test {
 
     function setUp() external {
         if (block.chainid == baseMainnetChainID) {
-            yieldWield = new YieldWield(addressProvider);
-            yieldWieldAddress = yieldWield.getYieldWieldContractAddress();
+            yieldAdvance = new YieldAdvance(addressProvider);
+            yieldAdvanceAddress = yieldAdvance.getYieldAdvanceContractAddress();
             tokenRegistry = new TokenRegistry();
             tokenRegistryAddress = tokenRegistry.getTokenRegistryAddress();
             vm.startPrank(dev);
-            sayv = new Sayv(addressProvider, yieldWieldAddress, tokenRegistryAddress);
+            sayv = new Sayv(addressProvider, yieldAdvanceAddress, tokenRegistryAddress);
             vm.stopPrank();
             sayvAddress = sayv.getVaultAddress();
             vm.prank(dev);
